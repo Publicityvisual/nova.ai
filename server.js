@@ -947,44 +947,86 @@ async function handlePublicUser(chatId, text, sender, msg) {
   // 💾 GUARDAR CLIENTE EN BASE DE DATOS (si es primera vez)
   try {
     const existingClient = await findClient(chatId);
-    if (!existingClient.success || !existingClient.client) {
-      await saveClient(chatId, userName, null, null, 'Primer contacto');
+    if (!existingClient.client) {
+      await saveClient(chatId, userName, null, null, `Primer contacto: ${new Date().toLocaleString()}`);
       console.log(`💾 Nuevo cliente guardado: ${userName}`);
     }
   } catch (e) {
-    console.error('Error guardando cliente:', e);
+    console.log('Error guardando cliente:', e.message);
   }
   
-  // Obtener contexto de conversación previa
-  const userContext = userSessions[userId]?.context || [];
-  const conversationHistory = userContext.slice(-10).map(c => ({
+  // 🧠 CARGAR CONTEXTO DE CONVERSACIÓN (últimos 20 mensajes)
+  if (!userSessions[userId]) {
+    userSessions[userId] = { 
+      context: [], 
+      lastActive: Date.now(),
+      preferences: {},
+      interactionsCount: 0,
+      lastTopic: null
+    };
+  }
+  
+  const session = userSessions[userId];
+  session.interactionsCount++;
+  session.lastActive = Date.now();
+  
+  // Preparar historial de conversación
+  const conversationHistory = session.context.slice(-20).map(c => ({
     role: c.role === 'user' ? 'user' : 'assistant',
     content: c.text
   }));
   
+  // Guardar mensaje del usuario
+  saveConversation(userId, text, null, sentiment.sentiment);
+  
+  // Mostrar typing indicator
+  if (ASSISTANT_CONFIG.typingDelay) {
+    await sock.sendPresenceUpdate('composing', chatId);
+    await new Promise(r => setTimeout(r, 1000 + Math.random() * 2000));
+  }
+  
   try {
-    // Simular "escribiendo..." para hacerlo más humano
-    if (ASSISTANT_CONFIG.typingDelay) {
-      await sock.sendPresenceUpdate('composing', chatId);
-      await new Promise(r => setTimeout(r, 2000 + Math.random() * 2000)); // 2-4 segundos (más natural)
-    }
-    
-    // Usar IA avanzada con herramientas
+    // 🧠 PROCESAR CON IA INTELIGENTE
     const aiResult = await processWithAI(text, conversationHistory, true);
     
     if (aiResult.success) {
       let aiResponse = aiResult.response;
       
-      // Post-procesamiento para hacerlo más natural
-      aiResponse = humanizeResponse(aiResponse, userName);
+      // 🎭 PERSONALIZAR SEGÚN SENTIMIENTO
+      if (sentiment.sentiment === 'angry') {
+        aiResponse = '😌 Entiendo tu frustración. Permíteme ayudarte mejor:\n\n' + aiResponse;
+      } else if (sentiment.sentiment === 'positive') {
+        aiResponse = aiResponse + '\n\n¡Me alegra poder ayudarte! 🎉';
+      }
+      
+      // Guardar contexto
+      session.context.push({ 
+        role: 'user', 
+        text: text, 
+        timestamp: Date.now(),
+        sentiment: sentiment.sentiment
+      });
+      session.context.push({ 
+        role: 'assistant', 
+        text: aiResponse, 
+        timestamp: Date.now(),
+        model: aiResult.model
+      });
+      
+      // Limitar contexto a 30 mensajes
+      if (session.context.length > 30) {
+        session.context = session.context.slice(-30);
+      }
+      
+      // Actualizar último tema
+      session.lastTopic = detectTopic(text);
       
       // Enviar respuesta
       await sock.sendMessage(chatId, { text: aiResponse });
       
-      // Guardar en contexto
-      userSessions[userId].context.push({ role: 'assistant', text: aiResponse, timestamp: Date.now() });
+      console.log(`🧠 Respuesta IA profesional enviada a ${userName} (Modelo: ${aiResult.model})`);
       
-      // 💾 GUARDAR CONVERSACIÓN EN BASE DE DATOS
+      // Guardar en BD
       try {
         if (db) {
           db.run(
@@ -996,7 +1038,6 @@ async function handlePublicUser(chatId, text, sender, msg) {
         console.error('Error guardando conversación:', e);
       }
       
-      console.log(`🧠 Respuesta IA con herramientas enviada a ${userName}`);
     } else {
       throw new Error(aiResult.error);
     }
@@ -1004,10 +1045,45 @@ async function handlePublicUser(chatId, text, sender, msg) {
   } catch (error) {
     console.error('❌ Error con IA, usando respuesta de respaldo:', error.message);
     
-    // Respaldo si la IA falla
-    const fallbackResponse = generateFallbackResponse(text, userName);
+    // 🆘 RESPUESTA DE EMERGENCIA
+    const fallbackResponse = generateSmartFallback(text, userName, sentiment.sentiment);
     await sock.sendMessage(chatId, { text: fallbackResponse });
   }
+}
+
+// 🔍 DETECTAR TEMA DE CONVERSACIÓN
+function detectTopic(text) {
+  const lower = text.toLowerCase();
+  if (/\b(clima|tiempo|temperatura)\b/.test(lower)) return 'clima';
+  if (/\b(precio|cotización|costo|presupuesto)\b/.test(lower)) return 'precios';
+  if (/\b(logo|diseño|tarjeta|volante|banner|web|video)\b/.test(lower)) return 'servicios';
+  if (/\b(hora|fecha|día|cuándo)\b/.test(lower)) return 'tiempo';
+  if (/\b(ubicación|dirección|dónde)\b/.test(lower)) return 'ubicacion';
+  return 'general';
+}
+
+// 🆘 GENERAR RESPUESTA DE EMERGENCIA INTELIGENTE
+function generateSmartFallback(text, userName, sentiment) {
+  const responses = {
+    angry: [
+      `Veo que estás molesto ${userName}. Déjame conectar con un humano para ayudarte mejor.`,
+      `Entiendo tu frustración. ¿Prefieres que te contacte directamente?`,
+      `Perdón por el inconveniente ${userName}. Estoy teniendo problemas técnicos. ¿Te llamo?`
+    ],
+    positive: [
+      `¡Hey ${userName}! Disculpa el problema técnico. ¿En qué más puedo ayudarte?`,
+      `Ups, algo falló ${userName}. Pero no te preocupes, intentemos de nuevo.`,
+      `Error temporal ${userName}. ¿Podrías repetir tu pregunta?`
+    ],
+    neutral: [
+      `Disculpa ${userName}, estoy teniendo problemas de conexión. ¿Intentamos de nuevo?`,
+      `Algo salió mal. Pero estoy aquí para ayudarte ${userName}.`,
+      `Error técnico momentáneo. ¿Quieres intentar con otra pregunta?`
+    ]
+  };
+  
+  const options = responses[sentiment] || responses.neutral;
+  return options[Math.floor(Math.random() * options.length)];
 }
 
 // 🎭 HUMANIZAR RESPUESTA (hacerla más natural)
@@ -2146,98 +2222,227 @@ async function convertCurrency(amount, from, to) {
   }
 }
 
-// 🧠 25. PROCESAR CON IA ULTRA (con todas las herramientas)
+// 🧠 25. PROCESAR CON IA ULTRA (con todas las herramientas + razonamiento multi-paso)
 async function processWithAI(userMessage, conversationHistory = [], useTools = true) {
+  // 🧠 MEMORIA EXPANDIDA: Mantener hasta 20 mensajes de contexto
+  const expandedHistory = conversationHistory.slice(-20);
+  
+  // 📝 SISTEMA DE RAZONAMIENTO MULTI-PASO
+  const reasoningPrompt = `${SYSTEM_PROMPT}
+
+🧠 REGLAS DE RAZONAMIENTO PROFESIONAL:
+1. PIENSA PASO A PASO antes de responder
+2. ANALIZA la intención real del usuario
+3. IDENTIFICA qué herramientas necesitas usar
+4. VERIFICA la información antes de presentarla
+5. ESTRUCTURA respuestas claras y profesionales
+6. ADMITE cuando no sabes algo y ofrece alternativas
+7. USA ejemplos concretos cuando sea útil
+
+📝 ESTRUCTURA DE RESPUESTA PROFESIONAL:
+- Saludo personalizado (si aplica)
+- Respuesta directa a la pregunta
+- Información de soporte/evidencia
+- Sugerencias proactivas relacionadas
+- Cierre con invitación a seguir conversando`;
+
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...conversationHistory,
+    { role: 'system', content: reasoningPrompt },
+    ...expandedHistory,
     { role: 'user', content: userMessage }
   ];
   
-  try {
-    const response = await axios.post(OPENROUTER_URL, {
-      model: 'anthropic/claude-3.5-sonnet:beta',
-      messages: messages,
-      max_tokens: 500,
-      temperature: 0.9, // Más creativo
-      top_p: 0.95
-    }, {
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'http://localhost:3000',
-        'X-Title': 'Publicity Visual Ultra Assistant'
+  // 🔄 SISTEMA DE REINTENTOS INTELIGENTES CON MÚLTIPLES MODELOS
+  const models = [
+    'anthropic/claude-3.5-sonnet:beta',
+    'anthropic/claude-3.5-haiku:beta',
+    'meta-llama/llama-3.1-405b-instruct:free',
+    'google/gemini-flash-1.5'
+  ];
+  
+  let lastError = null;
+  
+  for (const model of models) {
+    try {
+      console.log(`🤖 Intentando con modelo: ${model}`);
+      
+      const response = await axios.post(OPENROUTER_URL, {
+        model: model,
+        messages: messages,
+        max_tokens: 800,
+        temperature: 0.7, // Más preciso para respuestas profesionales
+        top_p: 0.9,
+        presence_penalty: 0.1, // Evita repetición
+        frequency_penalty: 0.1
+      }, {
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'http://localhost:3000',
+          'X-Title': 'Publicity Visual Ultra Assistant'
+        },
+        timeout: 30000 // 30 segundos timeout
+      });
+      
+      let aiResponse = response.data.choices[0].message.content;
+      
+      // 🛠️ DETECCIÓN INTELIGENTE DE HERRAMIENTAS NECESARIAS
+      if (useTools && (currentMode === MODES.ULTRA || currentMode === MODES.GOD)) {
+        aiResponse = await enhanceWithTools(aiResponse, userMessage);
       }
-    });
+      
+      // 💡 AGREGAR SUGERENCIAS PROACTIVAS
+      aiResponse = addProactiveSuggestions(aiResponse, userMessage);
+      
+      console.log(`✅ Respuesta generada con ${model}`);
+      return { success: true, response: aiResponse, model: model };
+      
+    } catch (error) {
+      lastError = error;
+      console.log(`⚠️ Error con ${model}: ${error.message}`);
+      continue; // Intentar con siguiente modelo
+    }
+  }
+  
+  // Si todos los modelos fallan, usar respuesta de emergencia
+  return { 
+    success: false, 
+    error: lastError?.message || 'Todos los modelos fallaron',
+    fallback: true 
+  };
+}
+
+// 🛠️ FUNCIÓN: Enriquecer respuesta con herramientas inteligentes
+async function enhanceWithTools(aiResponse, userMessage) {
+  const lowerMsg = userMessage.toLowerCase();
+  let enhancedResponse = aiResponse;
+  const toolsUsed = [];
+  
+  // 🌤️ Clima - detección más amplia
+  if (/\b(clima|tiempo|temperatura|está haciendo|pronóstico|grados)\b/i.test(lowerMsg)) {
+    const cityMatch = userMessage.match(/(?:clima|tiempo|temperatura|pronóstico)(?:\s+(?:en|de|para|del))?(?:\s+la\s+ciudad\s+de)?\s+([a-záéíóúñ\s]+?)(?:\?|\s|$|,|\.)/i);
+    const city = cityMatch ? cityMatch[1].trim() : 'Pachuca'; // Default a Pachuca
     
-    let aiResponse = response.data.choices[0].message.content;
-    
-    // Detectar si necesita usar herramientas (en modo ULTRA)
-    if (useTools && currentMode === MODES.ULTRA) {
-      const lowerMsg = userMessage.toLowerCase();
-      
-      // Buscar clima
-      if (lowerMsg.includes('clima') || lowerMsg.includes('tiempo') || lowerMsg.includes('temperatura')) {
-        const cityMatch = userMessage.match(/clima (?:en |de )?([a-záéíóúñ\s]+)/i);
-        if (cityMatch) {
-          const weather = await getWeather(cityMatch[1].trim());
-          if (weather.success) {
-            aiResponse += `\n\n🌤️ El clima en ${weather.city}: ${weather.temp}°C, ${weather.description}. Humedad: ${weather.humidity}%`;
-          }
-        }
+    try {
+      const weather = await getWeather(city);
+      if (weather.success) {
+        enhancedResponse += `\n\n🌤️ **Información meteorológica actual**\n📍 ${weather.city}: ${weather.temp}°C\n📝 ${weather.description.charAt(0).toUpperCase() + weather.description.slice(1)}\n💧 Humedad: ${weather.humidity}% | 💨 Viento: ${weather.wind} m/s`;
+        toolsUsed.push('clima');
       }
-      
-      // Buscar Google
-      if (/\b(qué es|quién es|cómo|dónde|cuándo|por qué|noticias de|información sobre)\b/i.test(userMessage)) {
-        const search = await searchGoogle(userMessage, 3);
-        if (search.success && search.results.length > 0) {
-          const topResult = search.results[0];
-          aiResponse += `\n\n📚 Fuente: ${topResult.title}\n${topResult.snippet?.substring(0, 150)}...`;
-        }
+    } catch (e) {
+      console.log('Error obteniendo clima:', e.message);
+    }
+  }
+  
+  // 🔍 Búsqueda Google - para preguntas de conocimiento
+  if (/\b(qué es|quién es|cómo|dónde|cuándo|por qué|noticias de|información sobre|dime sobre|explica|investiga|busca|sabes de)\b/i.test(lowerMsg) && !toolsUsed.includes('google')) {
+    try {
+      const search = await searchGoogle(userMessage, 3);
+      if (search.success && search.results.length > 0) {
+        const topResults = search.results.slice(0, 2);
+        enhancedResponse += `\n\n📚 **Fuentes consultadas:**`;
+        topResults.forEach((r, i) => {
+          enhancedResponse += `\n${i+1}. ${r.title}\n   ${r.snippet?.substring(0, 120)}...`;
+        });
+        toolsUsed.push('google');
       }
-      
-      // Calcular
-      if (/\d+\s*[\+\-\*\/\^\%\.]\s*\d+/.test(userMessage)) {
-        const calcMatch = userMessage.match(/(\d+[\s\+\-\*\/\^\%\.\(\)]+\d+)/);
-        if (calcMatch) {
-          const calc = await calculate(calcMatch[1]);
-          if (calc.success) {
-            aiResponse += `\n\n🧮 El resultado es: ${calc.result}`;
-          }
+    } catch (e) {
+      console.log('Error en búsqueda:', e.message);
+    }
+  }
+  
+  // 🧮 Cálculos matemáticos
+  if (/\b(cuánto es|calcula|suma|resta|multiplica|divide|resultado de|cuanto)\b/i.test(lowerMsg) || /\d+\s*[+\-*\/\^%]\s*\d+/.test(userMessage)) {
+    const calcMatch = userMessage.match(/(-?\d+(?:\.\d+)?(?:\s*[+\-*\/\^%]\s*-?\d+(?:\.\d+)?)+)/);
+    if (calcMatch) {
+      try {
+        const calc = await calculate(calcMatch[1]);
+        if (calc.success) {
+          enhancedResponse += `\n\n🧮 **Cálculo:** ${calc.expression} = **${calc.result}**`;
+          toolsUsed.push('calculadora');
         }
-      }
-      
-      // Cotización
-      if (/\b(cotización|precio|cuánto cuesta|presupuesto)\b/i.test(userMessage)) {
-        const serviceMatch = userMessage.match(/(?:cotización|precio|cuánto cuesta)\s+(?:de |para |de un |una )?(.+)/i);
-        if (serviceMatch) {
-          const quote = await generateQuote('unknown', serviceMatch[1].trim(), userMessage);
-          if (quote.success) {
-            aiResponse += `\n\n${quote.message}`;
-          }
-        }
-      }
-      
-      // Moneda
-      if (/\b(dólar|euro|peso|convertir|usd|mxn|eur)\b/i.test(userMessage)) {
-        const currencyMatch = userMessage.match(/(\d+)\s*(usd|mxn|eur|dólares|pesos)\s*(?:a |en )?(mxn|usd|eur|pesos|dólares)/i);
-        if (currencyMatch) {
-          const amount = parseFloat(currencyMatch[1]);
-          const from = currencyMatch[2].substring(0, 3).toUpperCase();
-          const to = currencyMatch[3].substring(0, 3).toUpperCase();
-          const conv = await convertCurrency(amount, from, to);
-          if (conv.success) {
-            aiResponse += `\n\n💱 ${amount} ${from} = ${conv.result} ${to} (tasa: ${conv.rate})`;
-          }
-        }
+      } catch (e) {
+        console.log('Error en cálculo:', e.message);
       }
     }
-    
-    return { success: true, response: aiResponse };
-    
-  } catch (error) {
-    return { success: false, error: error.message };
   }
+  
+  // 💰 Cotizaciones de servicios
+  if (/\b(cotización|precio|cuánto cuesta|presupuesto|valor de|costo de)\b/i.test(lowerMsg)) {
+    const serviceMatch = userMessage.match(/(?:cotización|precio|cuánto cuesta|presupuesto|valor|costo)(?:\s+(?:de|para|de un|una|del|el|la))?(?:\s+(?:el|la|los|las|un|una))?(?:\s+(servicio|diseño|logo|tarjetas|volantes|banner|redes|página|web|video|fotografía|foto|branding))?(?:\s+(de|para))?(?:\s+(.+))?/i);
+    if (serviceMatch) {
+      const service = (serviceMatch[1] || serviceMatch[3] || userMessage).trim();
+      try {
+        const quote = await generateQuote('unknown', service, userMessage);
+        if (quote.success) {
+          enhancedResponse += `\n\n${quote.message}`;
+          toolsUsed.push('cotización');
+        }
+      } catch (e) {
+        console.log('Error en cotización:', e.message);
+      }
+    }
+  }
+  
+  // 💱 Conversión de moneda
+  if (/\b(dólar|euro|peso|convertir|usd|mxn|eur|exchange|moneda)\b/i.test(lowerMsg)) {
+    const currencyMatch = userMessage.match(/(\d+(?:\.\d+)?)\s*(usd|mxn|eur|dólares?|pesos?|euros?)\s*(?:a|en|to)\s*(mxn|usd|eur|pesos?|dólares?|euros?)/i);
+    if (currencyMatch) {
+      const amount = parseFloat(currencyMatch[1]);
+      let from = currencyMatch[2].toUpperCase().substring(0, 3);
+      let to = currencyMatch[3].toUpperCase().substring(0, 3);
+      
+      // Normalizar nombres
+      if (from === 'DÓL' || from === 'DOL') from = 'USD';
+      if (to === 'DÓL' || to === 'DOL') to = 'USD';
+      if (from === 'PES') from = 'MXN';
+      if (to === 'PES') to = 'MXN';
+      if (from === 'EUR') from = 'EUR';
+      if (to === 'EUR') to = 'EUR';
+      
+      try {
+        const conv = await convertCurrency(amount, from, to);
+        if (conv.success) {
+          enhancedResponse += `\n\n💱 **Conversión:** ${amount} ${from} = **${conv.result} ${to}** (tasa: ${conv.rate})`;
+          toolsUsed.push('moneda');
+        }
+      } catch (e) {
+        console.log('Error en conversión:', e.message);
+      }
+    }
+  }
+  
+  return enhancedResponse;
+}
+
+// 💡 FUNCIÓN: Agregar sugerencias proactivas basadas en contexto
+function addProactiveSuggestions(response, userMessage) {
+  const lowerMsg = userMessage.toLowerCase();
+  let suggestions = [];
+  
+  // Sugerencias según el tema
+  if (/\b(clima|temperatura|pronóstico)\b/i.test(lowerMsg)) {
+    suggestions = ['¿Necesitas que te avise si cambia el clima?', '¿Quieres ver el pronóstico de toda la semana?'];
+  } else if (/\b(precio|cotización|costo|cuánto)\b/i.test(lowerMsg)) {
+    suggestions = ['¿Te gustaría ver más opciones de precios?', '¿Necesitas una cotización detallada por escrito?', '¿Quieres agendar una llamada para revisar el presupuesto?'];
+  } else if (/\b(logo|diseño|tarjeta|volante|banner)\b/i.test(lowerMsg)) {
+    suggestions = ['¿Tienes ejemplos de estilos que te gusten?', '¿Necesitas que te envíe el portafolio?', '¿Quieres ver referencias de trabajos similares?'];
+  } else if (/\b(horario|cita|agendar|reunión|llamada)\b/i.test(lowerMsg)) {
+    suggestions = ['Puedo guardar tu preferencia de horario', '¿Te envío un recordatorio antes de la cita?'];
+  } else if (/\b(gracias|ok|vale|perfecto)\b/i.test(lowerMsg)) {
+    suggestions = ['¿Algo más en lo que pueda ayudarte?', 'Estoy aquí si necesitas algo más'];
+  } else if (!/\?/.test(userMessage) && userMessage.length > 10) {
+    // Si no es pregunta pero es mensaje largo
+    suggestions = ['¿Te gustaría saber más sobre este tema?', '¿Necesitas que investigue algo específico?'];
+  }
+  
+  // Agregar 1-2 sugerencias aleatorias
+  if (suggestions.length > 0) {
+    const selected = suggestions.sort(() => 0.5 - Math.random()).slice(0, 2);
+    response += `\n\n💡 **¿Sabías que puedo...**\n` + selected.map(s => `• ${s}`).join('\n');
+  }
+  
+  return response;
 }
 
 // Verificar recordatorios pendientes cada minuto
