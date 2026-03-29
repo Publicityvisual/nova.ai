@@ -12,11 +12,24 @@
         body { font-family: 'Inter', -apple-system, sans-serif; background: #0a0a0f; color: #fff; }
         .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .logo { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .user-info { display: flex; align-items: center; gap: 1rem; }
+        .logo { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nav-links a { color: #a0a0b0; text-decoration: none; transition: color 0.3s; }
+        .nav-links a:hover { color: #fff; }
         .btn { padding: 0.75rem 1.5rem; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: all 0.3s; }
         .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
         .btn-danger { background: #ef4444; color: #fff; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+        .btn-sm { padding: 0.5rem 1rem; font-size: 0.875rem; }
+        
+        .sidebar { position: fixed; left: 0; top: 0; width: 250px; height: 100vh; background: rgba(10, 10, 15, 0.98); border-right: 1px solid rgba(255,255,255,0.1); padding: 2rem; z-index: 100; }
+        .sidebar .logo { margin-bottom: 3rem; }
+        .nav-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; color: #a0a0b0; text-decoration: none; border-radius: 8px; margin-bottom: 0.5rem; transition: all 0.3s; }
+        .nav-item:hover, .nav-item.active { background: rgba(102, 126, 234, 0.1); color: #fff; }
+        .nav-item i { font-size: 1.25rem; }
+        
+        .main-content { margin-left: 250px; min-height: 100vh; }
         
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 3rem; }
         .stat-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.5rem; }

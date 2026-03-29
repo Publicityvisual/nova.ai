@@ -10,7 +10,7 @@
         body { font-family: 'Inter', sans-serif; background: #0a0a0f; color: #fff; line-height: 1.6; }
         header { background: rgba(10, 10, 15, 0.95); backdrop-filter: blur(10px); padding: 1rem 2rem; position: fixed; width: 100%; top: 0; z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.1); }
         nav { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
-        .logo { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .logo { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         .nav-links { display: flex; gap: 2rem; align-items: center; }
         .nav-links a { color: #a0a0b0; text-decoration: none; transition: color 0.3s; }
         .nav-links a:hover { color: #fff; }
@@ -19,7 +19,7 @@
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
         .btn-secondary { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; }
         .hero { padding: 10rem 2rem 6rem; max-width: 1400px; margin: 0 auto; text-align: center; }
-        .hero h1 { font-size: 4rem; font-weight: 700; margin-bottom: 1.5rem; background: linear-gradient(135deg, #fff 0%, #a0a0b0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero h1 { font-size: 4rem; font-weight: 700; margin-bottom: 1.5rem; background: linear-gradient(135deg, #fff 0%, #a0a0b0 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         .hero-badge { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; }
         .hero p { font-size: 1.25rem; color: #a0a0b0; max-width: 600px; margin: 0 auto 2rem; }
         .hero-buttons { display: flex; gap: 1rem; justify-content: center; }
@@ -46,6 +46,18 @@
         .pricing-features { list-style: none; margin: 2rem 0; text-align: left; }
         .pricing-features li { padding: 0.5rem 0; color: #a0a0b0; }
         .pricing-features li::before { content: "✓"; color: #667eea; margin-right: 0.5rem; }
+        .models-section { padding: 6rem 2rem; max-width: 1400px; margin: 0 auto; }
+        .models-section h2 { text-align: center; font-size: 2.5rem; margin-bottom: 1rem; }
+        .models-subtitle { text-align: center; color: #a0a0b0; margin-bottom: 3rem; font-size: 1.1rem; }
+        .models-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; }
+        .model-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.5rem; transition: all 0.3s; }
+        .model-card:hover { border-color: rgba(102, 126, 234, 0.5); transform: translateY(-3px); }
+        .model-name { font-size: 1.25rem; font-weight: 600; color: #fff; margin-bottom: 0.5rem; }
+        .model-id { font-family: 'Monaco', monospace; font-size: 0.85rem; color: #667eea; margin-bottom: 0.75rem; }
+        .model-desc { color: #a0a0b0; font-size: 0.95rem; margin-bottom: 1rem; line-height: 1.5; }
+        .model-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .model-tag { background: rgba(102, 126, 234, 0.2); color: #667eea; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
+        .model-tag.free { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
         footer { padding: 3rem 2rem; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: #a0a0b0; }
         @media (max-width: 768px) { .hero h1 { font-size: 2.5rem; } .nav-links { display: none; } .hero-buttons { flex-direction: column; } }
     </style>
@@ -133,6 +145,101 @@ console.log(data.choices[0].message.content);</pre>
                 <div class="feature-icon">💰</div>
                 <h3>Precios Transparentes</h3>
                 <p>Paga solo por lo que usas. Créditos que nunca expiran.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="models-section" id="models">
+        <h2>Modelos Disponibles</h2>
+        <p class="models-subtitle">Más de 15 modelos de IA gratuitos y premium. Desde LLMs hasta modelos de visión y generación de imágenes.</p>
+        
+        <div class="models-grid">
+            <div class="model-card">
+                <div class="model-name">Nova-1</div>
+                <div class="model-id">nova-1</div>
+                <div class="model-desc">Llama 3.1 405B - El modelo más potente gratuito. Ideal para cualquier tarea compleja con contexto de 128K tokens.</div>
+                <div class="model-tags">
+                    <span class="model-tag free">Gratuito</span>
+                    <span class="model-tag">128K Context</span>
+                    <span class="model-tag">Razonamiento</span>
+                </div>
+            </div>
+            
+            <div class="model-card">
+                <div class="model-name">Nova-Uncensored</div>
+                <div class="model-id">nova-uncensored</div>
+                <div class="model-desc">Hermes 3 405B - Sin filtros corporativos. Para discusiones políticas, filosóficas y análisis crítico sin censura.</div>
+                <div class="model-tags">
+                    <span class="model-tag free">Gratuito</span>
+                    <span class="model-tag">Sin Censura</span>
+                    <span class="model-tag">Política/Filosofía</span>
+                </div>
+            </div>
+            
+            <div class="model-card">
+                <div class="model-name">Nova-Vision</div>
+                <div class="model-id">nova-vision</div>
+                <div class="model-desc">Llama 3.2 90B Vision - Analiza y describe imágenes con precisión. Multimodal: texto + imagen.</div>
+                <div class="model-tags">
+                    <span class="model-tag free">Gratuito</span>
+                    <span class="model-tag">Multimodal</span>
+                    <span class="model-tag">Visión</span>
+                </div>
+            </div>
+            
+            <div class="model-card">
+                <div class="model-name">Nova-Creative</div>
+                <div class="model-id">nova-creative</div>
+                <div class="model-desc">MythoMax L2 13B - Especializado en creatividad, storytelling, roleplay y narrativa inmersiva.</div>
+                <div class="model-tags">
+                    <span class="model-tag free">Gratuito</span>
+                    <span class="model-tag">Creativo</span>
+                    <span class="model-tag">Storytelling</span>
+                </div>
+            </div>
+            
+            <div class="model-card">
+                <div class="model-name">Nova-Local</div>
+                <div class="model-id">nova-local</div>
+                <div class="model-desc">Llama 3.1 via Ollama - Corre en tu propia máquina. Máxima privacidad, sin dependencias externas.</div>
+                <div class="model-tags">
+                    <span class="model-tag free">Gratuito</span>
+                    <span class="model-tag">Local</span>
+                    <span class="model-tag">Privado</span>
+                </div>
+            </div>
+            
+            <div class="model-card">
+                <div class="model-name">Nova-DALL-E</div>
+                <div class="model-id">nova-dalle</div>
+                <div class="model-desc">Generación de imágenes gratuita vía Pollinations AI. Crea ilustraciones, arte conceptual y fotos desde texto.</div>
+                <div class="model-tags">
+                    <span class="model-tag free">Gratuito</span>
+                    <span class="model-tag">Imágenes</span>
+                    <span class="model-tag">Arte</span>
+                </div>
+            </div>
+            
+            <div class="model-card">
+                <div class="model-name">Nova-Qwen</div>
+                <div class="model-id">nova-qwen</div>
+                <div class="model-desc">Qwen 2.5 72B - Modelo multilingüe avanzado. Excelente para español, chino e inglés con razonamiento superior.</div>
+                <div class="model-tags">
+                    <span class="model-tag free">Gratuito</span>
+                    <span class="model-tag">Multilingüe</span>
+                    <span class="model-tag">Razonamiento</span>
+                </div>
+            </div>
+            
+            <div class="model-card">
+                <div class="model-name">Nova-Search</div>
+                <div class="model-id">nova-search</div>
+                <div class="model-desc">Sonar Large - Modelo con acceso a búsqueda web en tiempo real. Información actualizada siempre.</div>
+                <div class="model-tags">
+                    <span class="model-tag free">Gratuito</span>
+                    <span class="model-tag">Web Search</span>
+                    <span class="model-tag">Tiempo Real</span>
+                </div>
             </div>
         </div>
     </section>
