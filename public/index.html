@@ -20,6 +20,7 @@
         .btn-secondary { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; }
         .hero { padding: 10rem 2rem 6rem; max-width: 1400px; margin: 0 auto; text-align: center; }
         .hero h1 { font-size: 4rem; font-weight: 700; margin-bottom: 1.5rem; background: linear-gradient(135deg, #fff 0%, #a0a0b0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero-badge { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; }
         .hero p { font-size: 1.25rem; color: #a0a0b0; max-width: 600px; margin: 0 auto 2rem; }
         .hero-buttons { display: flex; gap: 1rem; justify-content: center; }
         .demo { padding: 4rem 2rem; background: rgba(255,255,255,0.02); }
@@ -63,8 +64,9 @@
     </header>
 
     <section class="hero">
+        <div class="hero-badge">🔓 Modelos Sin Censura Disponibles</div>
         <h1>Inteligencia Artificial<br>para Desarrolladores</h1>
-        <p>API potente y fácil de usar para integrar modelos de lenguaje, generación de imágenes y transcripción de audio.</p>
+        <p>API potente con modelos de lenguaje sin filtros corporativos. Discute política, filosofía, religión y cualquier tema con respuestas honestas y directas.</p>
         <div class="hero-buttons">
             <a href="/dashboard" class="btn btn-primary">Comenzar Gratis</a>
             <a href="#demo" class="btn btn-secondary">Ver Demo</a>
@@ -111,6 +113,11 @@ console.log(data.choices[0].message.content);</pre>
                 <div class="feature-icon">🎙️</div>
                 <h3>Transcripción de Audio</h3>
                 <p>Convierte audio a texto con alta precisión. Soporta español e inglés.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔓</div>
+                <h3>Modelos Sin Censura</h3>
+                <p>Discute política, religión, filosofía y temas controversiales sin filtros corporativos. Respuestas honestas y directas.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">⚡</div>
