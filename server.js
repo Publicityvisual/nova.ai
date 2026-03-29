@@ -344,9 +344,11 @@ async function startWhatsApp() {
           // 🌐 MENSAJE DE USUARIO PÚBLICO
           console.log(`\n💬 [${new Date().toLocaleTimeString()}] Usuario ${sender}: ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`);
           
-          // Responder automáticamente si está habilitado y en modo auto
-          if (AUTO_REPLY_PUBLIC && currentMode === MODES.AUTO && aiAssistantActive) {
+          // Responder automáticamente si está habilitado y en modo auto/ultra/god
+          if (AUTO_REPLY_PUBLIC && (currentMode === MODES.AUTO || currentMode === MODES.ULTRA || currentMode === MODES.GOD) && aiAssistantActive) {
             await handlePublicUser(chatId, text, sender, msg);
+          } else if (!aiAssistantActive) {
+            console.log(`⏸️ Asistente pausado - No respondiendo a ${sender}`);
           }
         }
       }
@@ -1964,6 +1966,183 @@ async function translateText(text, targetLang = 'es', sourceLang = 'auto') {
     }
     
     return { error: error.message, text };
+  }
+}
+
+// 🔍 BUSCAR EN GOOGLE (SerpAPI)
+async function searchGoogle(query, numResults = 5) {
+  try {
+    const SERPAPI_KEY = process.env.SERPAPI_KEY || '';
+    
+    if (!SERPAPI_KEY) {
+      // Fallback: usar scraping básico si no hay API key
+      return await scrapeGoogleSearch(query, numResults);
+    }
+    
+    const response = await axios.get('https://serpapi.com/search', {
+      params: {
+        q: query,
+        api_key: SERPAPI_KEY,
+        engine: 'google',
+        num: numResults,
+        hl: 'es',
+        gl: 'mx'
+      },
+      timeout: 15000
+    });
+    
+    const results = response.data.organic_results?.map(r => ({
+      title: r.title,
+      snippet: r.snippet,
+      url: r.link
+    })) || [];
+    
+    return { success: true, results, query };
+  } catch (error) {
+    // Fallback a scraping básico
+    return await scrapeGoogleSearch(query, numResults);
+  }
+}
+
+// 🔍 SCRAPING DE BÚSQUEDA GOOGLE (fallback)
+async function scrapeGoogleSearch(query, numResults = 5) {
+  try {
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=es`;
+    
+    const response = await axios.get(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 10000
+    });
+    
+    const $ = cheerio.load(response.data);
+    const results = [];
+    
+    // Extraer resultados de búsqueda
+    $('div.g, div[data-sokoban-container]').each((i, el) => {
+      if (i >= numResults) return;
+      
+      const title = $(el).find('h3').text();
+      const snippet = $(el).find('div[data-sncf="1"], .VwiC3b, .s3v94d').text();
+      const url = $(el).find('a').attr('href');
+      
+      if (title && snippet) {
+        results.push({ title, snippet: snippet.substring(0, 200), url });
+      }
+    });
+    
+    return { success: true, results, query, method: 'scraping' };
+  } catch (error) {
+    return { success: false, error: error.message, query };
+  }
+}
+
+// 🌤️ OBTENER CLIMA (OpenWeather)
+async function getWeather(city) {
+  try {
+    const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY || 'd0566fa867e31f8d1195a3b2341eda8e'; // Key gratuita
+    
+    const response = await axios.get('https://api.openweathermap.org/data/2.5/weather', {
+      params: {
+        q: city,
+        appid: OPENWEATHER_API_KEY,
+        units: 'metric',
+        lang: 'es'
+      },
+      timeout: 10000
+    });
+    
+    const data = response.data;
+    
+    return {
+      success: true,
+      city: data.name,
+      temp: Math.round(data.main.temp),
+      feels_like: Math.round(data.main.feels_like),
+      description: data.weather[0].description,
+      humidity: data.main.humidity,
+      wind: data.wind.speed,
+      icon: data.weather[0].icon
+    };
+  } catch (error) {
+    return { success: false, error: `No pude obtener el clima de "${city}". ¿Es una ciudad válida?` };
+  }
+}
+
+// 🧮 CALCULAR EXPRESIÓN MATEMÁTICA
+async function calculate(expression) {
+  try {
+    // Limpiar la expresión
+    const cleanExpr = expression
+      .replace(/[^0-9+\-*/().\s]/g, '')
+      .replace(/×/g, '*')
+      .replace(/÷/g, '/')
+      .trim();
+    
+    if (!cleanExpr) {
+      return { success: false, error: 'Expresión no válida' };
+    }
+    
+    // Evaluar de forma segura usando Function
+    const result = new Function('return ' + cleanExpr)();
+    
+    return {
+      success: true,
+      result: result,
+      expression: cleanExpr
+    };
+  } catch (error) {
+    return { success: false, error: 'No pude calcular eso. Verifica la expresión.' };
+  }
+}
+
+// 💱 CONVERTIR MONEDA
+async function convertCurrency(amount, from, to) {
+  try {
+    const response = await axios.get(`https://api.exchangerate-api.com/v4/latest/${from}`, {
+      timeout: 10000
+    });
+    
+    const rate = response.data.rates[to];
+    
+    if (!rate) {
+      return { success: false, error: `No tengo tasa de cambio para ${from} a ${to}` };
+    }
+    
+    const result = (amount * rate).toFixed(2);
+    
+    return {
+      success: true,
+      result: result,
+      rate: rate,
+      from,
+      to,
+      amount
+    };
+  } catch (error) {
+    // Fallback a tasas aproximadas
+    const fallbackRates = {
+      'USD': { 'MXN': 17.5, 'EUR': 0.85 },
+      'MXN': { 'USD': 0.057, 'EUR': 0.048 },
+      'EUR': { 'USD': 1.18, 'MXN': 20.8 }
+    };
+    
+    const rate = fallbackRates[from]?.[to];
+    if (rate) {
+      const result = (amount * rate).toFixed(2);
+      return {
+        success: true,
+        result: result,
+        rate: rate,
+        from,
+        to,
+        amount,
+        method: 'fallback'
+      };
+    }
+    
+    return { success: false, error: error.message };
   }
 }
 
