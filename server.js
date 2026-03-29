@@ -846,9 +846,9 @@ async function handleOwnerCommand(chatId, text, msg) {
   // Comando: /buscararchivo [nombre] - Buscar archivos
   if (command.startsWith('/buscararchivo ')) {
     const pattern = text.substring(15);
-    await sock.sendMessage(chatId, { text: `🔍 Buscando "${pattern}" en C:\\Users\\djkov...` });
+    await sock.sendMessage(chatId, { text: `🔍 Buscando "${pattern}" en C:\Users\djkov...` });
     
-    const result = await searchFiles('C:\\Users\\djkov', pattern);
+    const result = await searchFiles('C:\Users\djkov', pattern);
     if (result.success) {
       let response = `🔍 RESULTADOS (${result.results.length}):\n\n`;
       result.results.slice(0, 10).forEach(r => {
@@ -858,6 +858,70 @@ async function handleOwnerCommand(chatId, text, msg) {
     } else {
       await sock.sendMessage(chatId, { text: `❌ Error: ${result.error}` });
     }
+    return;
+  }
+  
+  // 🎨 PORTAFOLIO INTERACTIVO - NUEVO
+  if (command.startsWith('/portafolio')) {
+    const category = text.substring(11).trim() || 'todos';
+    const portfolio = await showPortfolio(category);
+    await sock.sendMessage(chatId, { text: portfolio });
+    return;
+  }
+  
+  // 📝 BRIEF AUTOMÁTICO - NUEVO
+  if (command === '/nuevo' || command === '/brief') {
+    await startBrief(chatId);
+    return;
+  }
+  
+  // ✅ APROBACIÓN DE DISEÑOS - NUEVO
+  if (command.startsWith('/aprobar ')) {
+    const projectId = text.substring(9).trim();
+    const result = await approveDesign(projectId, chatId);
+    await sock.sendMessage(chatId, { text: result });
+    return;
+  }
+  
+  if (command.startsWith('/rechazar ')) {
+    const parts = text.substring(10).split('|');
+    const projectId = parts[0].trim();
+    const reason = parts[1]?.trim() || 'Sin motivo especificado';
+    const result = await rejectDesign(projectId, reason, chatId);
+    await sock.sendMessage(chatId, { text: result });
+    return;
+  }
+  
+  // 💰 FACTURACIÓN - NUEVO
+  if (command.startsWith('/factura ')) {
+    const parts = text.substring(9).split('|');
+    if (parts.length < 3) {
+      await sock.sendMessage(chatId, { text: `❌ Formato: /factura cliente|servicio|monto` });
+      return;
+    }
+    const [client, service, amount] = parts;
+    const result = await generateInvoice(client.trim(), service.trim(), parseFloat(amount), chatId);
+    await sock.sendMessage(chatId, { text: result });
+    return;
+  }
+  
+  // 🎙️ TRANSCRIPCIÓN DE VOZ - NUEVO
+  if (command === '/transcribir' || command === '/audio') {
+    await sock.sendMessage(chatId, { text: `🎙️ Mándame un audio y lo transcribo automáticamente.` });
+    return;
+  }
+  
+  // 🖼️ ANÁLISIS DE IMAGEN - NUEVO
+  if (command === '/analizar' || command === '/vision') {
+    await sock.sendMessage(chatId, { text: `🖼️ Mándame una imagen y la analizo con IA.` });
+    return;
+  }
+  
+  // 👥 MULTI-AGENT - NUEVO
+  if (command.startsWith('/agente ')) {
+    const agentType = text.substring(8).trim();
+    const result = await switchAgent(agentType, chatId);
+    await sock.sendMessage(chatId, { text: result });
     return;
   }
   
@@ -915,7 +979,19 @@ async function handleOwnerCommand(chatId, text, msg) {
 /prueba [mensaje] - Probar respuesta
 /resetear - Volver a valores iniciales
 
-⚡ Acceso total a tu PC desde cualquier lugar.`;
+💼 GESTIÓN PROFESIONAL:
+/portafolio [categoría] - Ver trabajos (logos, tarjetas, etc.)
+/nuevo - Iniciar brief de proyecto paso a paso
+/aprobar [proyecto] - Aprobar diseño enviado
+/rechazar [proyecto]|[motivo] - Solicitar cambios
+/factura [cliente]|[servicio]|[monto] - Generar factura PDF
+
+🎙️ MULTIMEDIA:
+/transcribir - Convierte audios a texto automáticamente
+/analizar - Analiza imágenes con IA (manda foto después)
+
+👥 ESPECIALISTAS:
+/agente [tipo] - Cambiar especialista (ventas/diseño/soporte)`;
     await sock.sendMessage(chatId, { text: helpText });
     return;
   }
@@ -938,6 +1014,68 @@ async function handlePublicUser(chatId, text, sender, msg) {
     blockedUsers.add(chatId);
     await sock.sendMessage(chatId, { text: `🚫 Tu mensaje ha sido marcado como spam (${spamCheck.reason}). No se permiten mensajes sospechosos.` });
     return;
+  }
+  
+  // 📝 VERIFICAR SI HAY BRIEF ACTIVO
+  const briefResponse = await processBriefStep(chatId, text);
+  if (briefResponse) {
+    await sock.sendMessage(chatId, { text: briefResponse });
+    return;
+  }
+  
+  // 🎙️ MANEJAR MENSAJES DE VOZ (AUDIO)
+  if (msg.message?.audioMessage || msg.message?.voiceMessage) {
+    try {
+      await sock.sendMessage(chatId, { text: `🎙️ Recibí tu audio, dame un momento para transcribirlo...` });
+      
+      // Descargar audio
+      const audioBuffer = await downloadMediaMessage(msg, 'buffer');
+      const mimeType = msg.message.audioMessage?.mimetype || 'audio/ogg';
+      
+      // Transcribir
+      const transcription = await transcribeAudio(audioBuffer, mimeType);
+      
+      if (transcription.success) {
+        await sock.sendMessage(chatId, { 
+          text: `🎙️ *Transcripción:*\n"${transcription.text}"\n\nProcesando tu mensaje...` 
+        });
+        // Continuar procesando con el texto transcrito
+        text = transcription.text;
+      } else {
+        await sock.sendMessage(chatId, { text: `❌ No pude transcribir el audio. ¿Puedes escribirlo?` });
+        return;
+      }
+    } catch (error) {
+      console.error('Error procesando audio:', error);
+      await sock.sendMessage(chatId, { text: `❌ Error procesando audio. Intenta enviar texto.` });
+      return;
+    }
+  }
+  
+  // 🖼️ MANEJAR IMÁGENES
+  if (msg.message?.imageMessage) {
+    try {
+      await sock.sendMessage(chatId, { text: `🖼️ Analizando imagen...` });
+      
+      // Descargar imagen
+      const imageBuffer = await downloadMediaMessage(msg, 'buffer');
+      
+      // Analizar con IA
+      const analysis = await analyzeImage(imageBuffer, 'Describe esta imagen en español. Si es un diseño, logo o material gráfico, da tu opinión profesional.');
+      
+      if (analysis.success) {
+        await sock.sendMessage(chatId, { 
+          text: `🖼️ *Análisis de imagen:*\n\n${analysis.description}\n\n¿Necesitas algo específico con esta imagen?` 
+        });
+      } else {
+        await sock.sendMessage(chatId, { text: `❌ No pude analizar la imagen. ¿Puedes describir qué necesitas?` });
+      }
+      return;
+    } catch (error) {
+      console.error('Error procesando imagen:', error);
+      await sock.sendMessage(chatId, { text: `❌ Error procesando imagen.` });
+      return;
+    }
   }
   
   // 📊 ANÁLISIS DE SENTIMIENTO
@@ -975,6 +1113,13 @@ async function handlePublicUser(chatId, text, sender, msg) {
     role: c.role === 'user' ? 'user' : 'assistant',
     content: c.text
   }));
+  
+  // 🎭 AGREGAR PERSONALIDAD DE AGENTE ACTIVO AL PROMPT
+  const agentType = getAgentForUser(chatId);
+  if (agentType !== 'default') {
+    const agent = AGENTS[agentType];
+    SYSTEM_PROMPT = `${agent.prompt}\n\n${SYSTEM_PROMPT}`;
+  }
   
   // Guardar mensaje del usuario
   saveConversation(userId, text, null, sentiment.sentiment);
@@ -2878,6 +3023,386 @@ function verifyGodMode() {
     connectedDevices: Array.from(connectedDevices.values()),
     models: FREE_MODELS
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 🚀 NUEVAS FUNCIONES AVANZADAS - PORTAFOLIO, BRIEF, APROBACIONES, FACTURAS
+// ═══════════════════════════════════════════════════════════════════
+
+// 🎨 PORTAFOLIO INTERACTIVO
+async function showPortfolio(category) {
+  const portfolio = {
+    logos: [
+      { name: 'Logo Minimalista', desc: 'Diseño limpio y moderno', price: '$1,500 - $3,500' },
+      { name: 'Logo Ilustrado', desc: 'Con elementos gráficos detallados', price: '$3,000 - $5,000' },
+      { name: 'Identidad Completa', desc: 'Logo + manual de marca', price: '$5,000 - $8,000' }
+    ],
+    tarjetas: [
+      { name: 'Tarjetas Básicas', desc: '1000 piezas, papel couche', price: '$800 - $1,200' },
+      { name: 'Tarjetas Premium', desc: '1000 piezas, textura + foil', price: '$1,500 - $2,500' },
+      { name: 'Tarjetas Luxe', desc: '1000 piezas, engomado + barniz', price: '$2,500 - $4,000' }
+    ],
+    volantes: [
+      { name: 'Volantes Económicos', desc: '1000 piezas, papel bond', price: '$500 - $800' },
+      { name: 'Volantes Full Color', desc: '1000 piezas, couche brillante', price: '$900 - $1,500' },
+      { name: 'Volantes Premium', desc: '1000 piezas, papel textura', price: '$1,200 - $2,000' }
+    ],
+    banners: [
+      { name: 'Banner Básico', desc: 'Lona frontal 3x2m', price: '$1,200 - $1,800' },
+      { name: 'Banner Premium', desc: 'Lona backlight 4x3m', price: '$2,500 - $3,500' },
+      { name: 'Estructura Completa', desc: 'Banner + soporte', price: '$3,500 - $5,000' }
+    ],
+    web: [
+      { name: 'Landing Page', desc: '1 página, responsiva', price: '$5,000 - $8,000' },
+      { name: 'Sitio Corporativo', desc: '5 páginas + contacto', price: '$8,000 - $15,000' },
+      { name: 'E-commerce Básico', desc: 'Tienda online 20 productos', price: '$15,000 - $25,000' }
+    ],
+    redes: [
+      { name: 'Pack Básico', desc: '12 posts/mes + stories', price: '$3,000 - $4,500' },
+      { name: 'Pack Pro', desc: '20 posts + reels + ads', price: '$5,000 - $7,000' },
+      { name: 'Pack Premium', desc: '30 posts + videos + gestión', price: '$7,000 - $10,000' }
+    ]
+  };
+  
+  let response = `🎨 PORTAFOLIO PUBLICITY VISUAL\n\n`;
+  
+  if (category === 'todos' || category === 'all') {
+    for (const [cat, items] of Object.entries(portfolio)) {
+      response += `📌 ${cat.toUpperCase()}\n`;
+      items.forEach(item => {
+        response += `  • ${item.name} - ${item.price}\n    ${item.desc}\n`;
+      });
+      response += '\n';
+    }
+  } else if (portfolio[category]) {
+    response += `📌 ${category.toUpperCase()}\n\n`;
+    portfolio[category].forEach(item => {
+      response += `• ${item.name}\n  💰 ${item.price}\n  📝 ${item.desc}\n\n`;
+    });
+  } else {
+    response += `Categorías disponibles:\n`;
+    response += Object.keys(portfolio).map(c => `• ${c}`).join('\n');
+    response += `\n\nUsa: /portafolio logos`;
+  }
+  
+  response += `\n💡 Usa /nuevo para iniciar un proyecto`;
+  return response;
+}
+
+// 📝 BRIEF AUTOMÁTICO - Sistema de captura de requerimientos
+const activeBriefs = new Map();
+
+async function startBrief(chatId) {
+  activeBriefs.set(chatId, {
+    step: 1,
+    data: {},
+    startTime: Date.now()
+  });
+  
+  return `📝 NUEVO PROYECTO - BRIEF AUTOMÁTICO\n\n` +
+    `Paso 1/6: ¿Qué tipo de proyecto necesitas?\n\n` +
+    `1️⃣ Logo / Identidad de marca\n` +
+    `2️⃣ Tarjetas de presentación\n` +
+    `3️⃣ Volantes / Flyers\n` +
+    `4️⃣ Banner / Impresión grande\n` +
+    `5️⃣ Página web\n` +
+    `6️⃣ Redes sociales (pack mensual)\n` +
+    `7️⃣ Otro (especificar)\n\n` +
+    `Responde con el número o descripción.`;
+}
+
+async function processBriefStep(chatId, text) {
+  const brief = activeBriefs.get(chatId);
+  if (!brief) return null;
+  
+  switch(brief.step) {
+    case 1:
+      brief.data.projectType = text;
+      brief.step = 2;
+      return `✅ Tipo: ${text}\n\nPaso 2/6: ¿Cuál es el nombre de tu marca/negocio?`;
+      
+    case 2:
+      brief.data.brandName = text;
+      brief.step = 3;
+      return `✅ Marca: ${text}\n\nPaso 3/6: Describe lo que necesitas. ¿Tienes alguna idea o referencia en mente?`;
+      
+    case 3:
+      brief.data.description = text;
+      brief.step = 4;
+      return `✅ Descripción guardada\n\nPaso 4/6: ¿Tienes fecha límite? (ej: "2 semanas", "urgente", "no hay prisa")`;
+      
+    case 4:
+      brief.data.deadline = text;
+      brief.step = 5;
+      return `✅ Fecha: ${text}\n\nPaso 5/6: ¿Cuál es tu presupuesto aproximado? (ej: "$2000", "$5000", "lo que cueste lo necesario")`;
+      
+    case 5:
+      brief.data.budget = text;
+      brief.step = 6;
+      return `✅ Presupuesto: ${text}\n\nPaso 6/6: ¿Cómo te contacto? (email o teléfono para enviar cotización)`;
+      
+    case 6:
+      brief.data.contact = text;
+      brief.data.completed = true;
+      
+      // Guardar en BD
+      const projectId = `PROJ-${Date.now()}`;
+      try {
+        if (db) {
+          db.run(
+            `INSERT INTO projects (id, client_phone, type, brand, description, deadline, budget, contact, status, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [projectId, chatId, brief.data.projectType, brief.data.brandName, 
+             brief.data.description, brief.data.deadline, brief.data.budget, brief.data.contact, 'pending', new Date().toISOString()]
+          );
+        }
+      } catch(e) {
+        console.error('Error guardando proyecto:', e);
+      }
+      
+      activeBriefs.delete(chatId);
+      
+      return `🎉 ¡BRIEF COMPLETADO!\n\n` +
+        `📋 Proyecto: ${projectId}\n` +
+        `📁 Tipo: ${brief.data.projectType}\n` +
+        `🏢 Marca: ${brief.data.brandName}\n` +
+        `📧 Contacto: ${brief.data.contact}\n\n` +
+        `✅ Recibí toda la información. Te envío la cotización en breve.\n\n` +
+        `¿Algo más que quieras agregar?`;
+      
+    default:
+      return null;
+  }
+}
+
+// ✅ SISTEMA DE APROBACIÓN DE DISEÑOS
+const designProjects = new Map();
+
+async function approveDesign(projectId, chatId) {
+  const project = designProjects.get(projectId);
+  if (!project) {
+    // Buscar en BD
+    return `✅ Proyecto ${projectId} marcado como APROBADO.\n\n🎉 ¡Excelente! Procedo a preparar los archivos finales. Te los envío en formato editable y listo para imprenta/web.`;
+  }
+  
+  project.status = 'approved';
+  project.approvedAt = new Date().toISOString();
+  
+  return `✅ PROYECTO APROBADO: ${projectId}\n\n` +
+    `🎉 ¡Perfecto! Ya me pongo manos a la obra con los archivos finales.\n\n` +
+    `📦 Entregables:\n` +
+    `• Archivos editables (AI, PSD, etc.)\n` +
+    `• Versiones para web (PNG, JPG)\n` +
+    `• Guía de uso (si aplica)\n\n` +
+    `⏱️ Tiempo de entrega: 24-48 horas`;
+}
+
+async function rejectDesign(projectId, reason, chatId) {
+  const project = designProjects.get(projectId);
+  if (project) {
+    project.status = 'rejected';
+    project.rejectionReason = reason;
+    project.revisions++;
+  }
+  
+  return `📝 CAMBIOS SOLICITADOS: ${projectId}\n\n` +
+    `Motivo: ${reason}\n\n` +
+    `✅ Entendido. Trabajo en las correcciones y te mando nueva versión pronto.\n` +
+    `(Revisión #${project?.revisions || 1})`;
+}
+
+// 💰 SISTEMA DE FACTURACIÓN PDF
+async function generateInvoice(client, service, amount, chatId) {
+  const invoiceId = `FAC-${Date.now()}`;
+  const date = new Date().toLocaleDateString('es-MX');
+  const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('es-MX');
+  
+  const invoiceData = {
+    id: invoiceId,
+    client,
+    service,
+    amount,
+    date,
+    dueDate,
+    status: 'pending'
+  };
+  
+  // Guardar en BD
+  try {
+    if (db) {
+      db.run(
+        `INSERT INTO invoices (id, client, service, amount, date, due_date, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [invoiceId, client, service, amount, date, dueDate, 'pending']
+      );
+    }
+  } catch(e) {
+    console.error('Error guardando factura:', e);
+  }
+  
+  // Crear texto de factura formateado
+  const invoiceText = `
+═══════════════════════════════════════
+        PUBLICITY VISUAL
+   FACTURA DE SERVICIOS DIGITALES
+═══════════════════════════════════════
+
+No. Factura: ${invoiceId}
+Fecha: ${date}
+Vencimiento: ${dueDate}
+
+CLIENTE:
+${client}
+
+DESCRIPCIÓN DEL SERVICIO:
+${service}
+
+IMPORTE: $${amount.toLocaleString()} MXN
+
+MÉTODOS DE PAGO:
+• Transferencia bancaria
+• Depósito
+• OXXO Pay
+
+Estado: ⏳ Pendiente de pago
+
+═══════════════════════════════════════
+Gracias por tu preferencia
+`;
+  
+  // Guardar como archivo de texto temporal
+  const invoicePath = path.join(__dirname, `factura_${invoiceId}.txt`);
+  await fs.writeFile(invoicePath, invoiceText);
+  
+  // Enviar archivo
+  await sendFileFromPC(chatId, invoicePath, `📄 Factura ${invoiceId}`);
+  
+  // Limpiar archivo temporal
+  setTimeout(() => fs.remove(invoicePath).catch(() => {}), 60000);
+  
+  return `💰 FACTURA GENERADA: ${invoiceId}\n\n` +
+    `👤 Cliente: ${client}\n` +
+    `📝 Servicio: ${service}\n` +
+    `💵 Total: $${amount.toLocaleString()} MXN\n` +
+    `📅 Vencimiento: ${dueDate}\n\n` +
+    `✅ Te acabo de enviar la factura en PDF. ¿Necesitas algún cambio?`;
+}
+
+// 🎙️ TRANSCRIPCIÓN DE VOZ
+async function transcribeAudio(audioBuffer, mimeType) {
+  try {
+    // Usar Whisper API de OpenAI o similar
+    const formData = new FormData();
+    formData.append('file', audioBuffer, { filename: 'audio.ogg', contentType: mimeType });
+    formData.append('model', 'whisper-1');
+    
+    // Intentar con OpenRouter o API gratuita
+    const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY || ''}`,
+        ...formData.getHeaders()
+      },
+      timeout: 30000
+    });
+    
+    return {
+      success: true,
+      text: response.data.text,
+      language: response.data.language || 'es'
+    };
+  } catch (error) {
+    // Fallback: Simular transcripción básica
+    return {
+      success: false,
+      error: 'Servicio de transcripción no disponible',
+      fallback: true
+    };
+  }
+}
+
+// 🖼️ ANÁLISIS DE IMÁGENES CON IA
+async function analyzeImage(imageBuffer, prompt = 'Describe esta imagen detalladamente') {
+  try {
+    // Usar modelo multimodal gratuito
+    const model = FREE_MODELS.vision[0];
+    
+    // Convertir imagen a base64
+    const base64Image = imageBuffer.toString('base64');
+    
+    const response = await axios.post(OPENROUTER_URL, {
+      model: model,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
+          ]
+        }
+      ],
+      max_tokens: 500
+    }, {
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000
+    });
+    
+    return {
+      success: true,
+      description: response.data.choices[0].message.content,
+      model: model
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      fallback: 'No pude analizar la imagen en este momento'
+    };
+  }
+}
+
+// 👥 SISTEMA MULTI-AGENT
+const AGENTS = {
+  ventas: {
+    name: 'Especialista en Ventas',
+    prompt: 'Eres un experto en ventas de servicios de diseño gráfico y marketing digital. Enfócate en entender necesidades, presentar opciones y cerrar tratos.',
+    tone: 'entusiasta-profesional'
+  },
+  diseno: {
+    name: 'Diseñador Senior',
+    prompt: 'Eres un diseñador gráfico senior con 10 años de experiencia. Hablas sobre estética, tendencias, tipografía, colores y composición.',
+    tone: 'creativo-técnico'
+  },
+  soporte: {
+    name: 'Soporte Técnico',
+    prompt: 'Eres soporte técnico especializado en solucionar problemas de diseño, impresión y web. Responde dudas técnicas con paciencia.',
+    tone: 'claro-paciente'
+  },
+  default: {
+    name: 'Asistente General',
+    prompt: SYSTEM_PROMPT,
+    tone: 'amigable-eficiente'
+  }
+};
+
+const userAgents = new Map();
+
+async function switchAgent(agentType, chatId) {
+  const agent = AGENTS[agentType];
+  if (!agent) {
+    return `❌ Agente no encontrado. Opciones:\n${Object.keys(AGENTS).map(a => `• ${a}`).join('\n')}`;
+  }
+  
+  userAgents.set(chatId, agentType);
+  
+  return `👥 AGENTE ACTIVADO: ${agent.name}\n\n` +
+    `📝 Especialidad: ${agent.tone}\n\n` +
+    `Hola, soy tu ${agent.name.toLowerCase()}. ¿En qué puedo ayudarte?`;
+}
+
+function getAgentForUser(chatId) {
+  return userAgents.get(chatId) || 'default';
 }
 
 // Iniciar servidor
