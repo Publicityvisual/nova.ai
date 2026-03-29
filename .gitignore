@@ -85,7 +85,9 @@ dist
 
 # Gatsby files
 .cache/
-public
+# public  ← Comentado para permitir Firebase Hosting
+!public/
+!public/**
 
 # Storybook build outputs
 .out

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovaAI - Plataforma de Inteligencia Artificial</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #0a0a0f; color: #fff; line-height: 1.6; }
+        header { background: rgba(10, 10, 15, 0.95); backdrop-filter: blur(10px); padding: 1rem 2rem; position: fixed; width: 100%; top: 0; z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        nav { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nav-links a { color: #a0a0b0; text-decoration: none; transition: color 0.3s; }
+        .nav-links a:hover { color: #fff; }
+        .btn { padding: 0.75rem 1.5rem; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: all 0.3s; text-decoration: none; display: inline-block; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
+        .btn-secondary { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; }
+        .hero { padding: 10rem 2rem 6rem; max-width: 1400px; margin: 0 auto; text-align: center; }
+        .hero h1 { font-size: 4rem; font-weight: 700; margin-bottom: 1.5rem; background: linear-gradient(135deg, #fff 0%, #a0a0b0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero p { font-size: 1.25rem; color: #a0a0b0; max-width: 600px; margin: 0 auto 2rem; }
+        .hero-buttons { display: flex; gap: 1rem; justify-content: center; }
+        .demo { padding: 4rem 2rem; background: rgba(255,255,255,0.02); }
+        .demo-container { max-width: 1000px; margin: 0 auto; }
+        .code-block { background: #1a1a2e; border-radius: 12px; padding: 2rem; margin: 2rem 0; overflow-x: auto; border: 1px solid rgba(255,255,255,0.1); }
+        .code-block pre { color: #a0a0b0; font-family: 'Monaco', 'Consolas', monospace; font-size: 0.9rem; line-height: 1.6; }
+        .code-block .comment { color: #6a9955; }
+        .code-block .string { color: #ce9178; }
+        .code-block .keyword { color: #569cd6; }
+        .features { padding: 6rem 2rem; max-width: 1400px; margin: 0 auto; }
+        .features h2 { text-align: center; font-size: 2.5rem; margin-bottom: 3rem; }
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .feature-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 2rem; transition: all 0.3s; }
+        .feature-card:hover { transform: translateY(-5px); border-color: rgba(102, 126, 234, 0.5); }
+        .feature-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+        .pricing { padding: 6rem 2rem; background: rgba(255,255,255,0.02); }
+        .pricing-container { max-width: 1200px; margin: 0 auto; }
+        .pricing h2 { text-align: center; font-size: 2.5rem; margin-bottom: 3rem; }
+        .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .pricing-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 2rem; text-align: center; }
+        .pricing-card.featured { border-color: #667eea; background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%); }
+        .price { font-size: 3rem; font-weight: 700; margin: 1rem 0; }
+        .pricing-features { list-style: none; margin: 2rem 0; text-align: left; }
+        .pricing-features li { padding: 0.5rem 0; color: #a0a0b0; }
+        .pricing-features li::before { content: "✓"; color: #667eea; margin-right: 0.5rem; }
+        footer { padding: 3rem 2rem; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: #a0a0b0; }
+        @media (max-width: 768px) { .hero h1 { font-size: 2.5rem; } .nav-links { display: none; } .hero-buttons { flex-direction: column; } }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">⚡ NovaAI</div>
+            <div class="nav-links">
+                <a href="#features">Características</a>
+                <a href="#pricing">Precios</a>
+                <a href="/docs">API Docs</a>
+                <button class="btn btn-primary" onclick="location.href='/dashboard'">Dashboard</button>
+            </div>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h1>Inteligencia Artificial<br>para Desarrolladores</h1>
+        <p>API potente y fácil de usar para integrar modelos de lenguaje, generación de imágenes y transcripción de audio.</p>
+        <div class="hero-buttons">
+            <a href="/dashboard" class="btn btn-primary">Comenzar Gratis</a>
+            <a href="#demo" class="btn btn-secondary">Ver Demo</a>
+        </div>
+    </section>
+
+    <section class="demo" id="demo">
+        <div class="demo-container">
+            <h2 style="text-align: center; margin-bottom: 2rem;">API Simple tipo OpenAI</h2>
+            <div class="code-block">
+                <pre><span class="comment">// Crear un chat completion</span>
+<span class="keyword">const</span> response = <span class="keyword">await</span> fetch(<span class="string">'https://novaai-38a4e.web.app/v1/chat/completions'</span>, {
+  method: <span class="string">'POST'</span>,
+  headers: {
+    <span class="string">'Authorization'</span>: <span class="string">'Bearer YOUR_API_KEY'</span>,
+    <span class="string">'Content-Type'</span>: <span class="string">'application/json'</span>
+  },
+  body: JSON.stringify({
+    model: <span class="string">'nova-1'</span>,
+    messages: [{ role: <span class="string">'user'</span>, content: <span class="string">'Hola, ¿cómo estás?'</span> }]
+  })
+});
+
+<span class="keyword">const</span> data = <span class="keyword">await</span> response.json();
+console.log(data.choices[0].message.content);</pre>
+            </div>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <h2>Todo lo que necesitas</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <h3>Chat Completions</h3>
+                <p>Modelos de lenguaje optimizados para español. Perfectos para chatbots y asistentes.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎨</div>
+                <h3>Generación de Imágenes</h3>
+                <p>Crea imágenes profesionales desde texto. Ideal para diseño y marketing.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎙️</div>
+                <h3>Transcripción de Audio</h3>
+                <p>Convierte audio a texto con alta precisión. Soporta español e inglés.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Compatible OpenAI</h3>
+                <p>Cambia la URL y usa el mismo código. Sin complicaciones.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3>Seguro y Privado</h3>
+                <p>Tus datos nunca se usan para entrenar. Encriptación end-to-end.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💰</div>
+                <h3>Precios Transparentes</h3>
+                <p>Paga solo por lo que usas. Créditos que nunca expiran.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="pricing" id="pricing">
+        <div class="pricing-container">
+            <h2>Elige tu plan</h2>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <h3>Gratis</h3>
+                    <div class="price">$0<span>/mes</span></div>
+                    <ul class="pricing-features">
+                        <li>$10 en créditos</li>
+                        <li>100 requests/mes</li>
+                        <li>Modelos básicos</li>
+                    </ul>
+                    <a href="/dashboard" class="btn btn-secondary" style="width: 100%;">Comenzar</a>
+                </div>
+                <div class="pricing-card featured">
+                    <h3>Pro</h3>
+                    <div class="price">$20<span>/mes</span></div>
+                    <ul class="pricing-features">
+                        <li>$50 en créditos/mes</li>
+                        <li>Requests ilimitadas</li>
+                        <li>Todos los modelos</li>
+                        <li>Soporte prioritario</li>
+                    </ul>
+                    <a href="/dashboard" class="btn btn-primary" style="width: 100%;">Elegir Pro</a>
+                </div>
+                <div class="pricing-card">
+                    <h3>Enterprise</h3>
+                    <div class="price">Custom</div>
+                    <ul class="pricing-features">
+                        <li>Volumen ilimitado</li>
+                        <li>SLA garantizado</li>
+                        <li>Soporte 24/7</li>
+                        <li>Modelos personalizados</li>
+                    </ul>
+                    <a href="mailto:hola@publicityvisual.com" class="btn btn-secondary" style="width: 100%;">Contactar</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2024 NovaAI. Construido para desarrolladores.</p>
+        <p style="margin-top: 1rem;">
+            <a href="/docs" style="color: #667eea;">API Docs</a> • 
+            <a href="https://github.com/Publicityvisual/nova.ai" style="color: #667eea;">GitHub</a>
+        </p>
+    </footer>
+</body>
+</html>
