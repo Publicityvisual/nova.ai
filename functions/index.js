@@ -21,6 +21,55 @@ app.use(express.json());
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_API_KEY = functions.config().openrouter?.key || process.env.OPENROUTER_API_KEY;
 const POLLINATIONS_URL = 'https://image.pollinations.ai/prompt/';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434'; // Ollama local
+
+// 🧠 MODELOS MULTIMODALES GRATUITOS SIN CENSURA
+const FREE_MODELS = {
+  // Modelos de texto/chat (OpenRouter - Gratuitos)
+  text: [
+    'meta-llama/llama-3.1-405b-instruct:free',      // Llama 3.1 405B - Mejor modelo gratuito
+    'meta-llama/llama-3.1-70b-instruct:free',       // Llama 3.1 70B
+    'nousresearch/hermes-3-llama-3.1-405b:free',    // Hermes 3 - Sin censura
+    'gryphe/mythomax-l2-13b:free',                  // MythoMax - Creativo
+    'nousresearch/nous-capybara-7b:free',             // Capybara - Rápido
+    'mistralai/mistral-7b-instruct:free',          // Mistral 7B
+    'microsoft/wizardlm-2-8x22b:free',               // WizardLM 2
+    'huggingfaceh4/zephyr-7b-beta:free'             // Zephyr 7B
+  ],
+  // Modelos de visión (OpenRouter - Gratuitos)
+  vision: [
+    'meta-llama/llama-3.2-90b-vision-instruct:free',  // Llama 3.2 90B Vision
+    'meta-llama/llama-3.2-11b-vision-instruct:free'   // Llama 3.2 11B Vision
+  ],
+  // Modelos locales (Ollama)
+  local: [
+    'llama3.1',           // Meta Llama 3.1 (local)
+    'mistral',            // Mistral 7B (local)
+    'mixtral',            // Mixtral 8x7B (local)
+    'qwen2.5',            // Qwen 2.5 (local)
+    'phi4',               // Microsoft Phi-4 (local)
+    'gemma2',             // Google Gemma 2 (local)
+    'deepseek-r1',        // DeepSeek R1 - Razonamiento (local)
+    'llava'               // LLaVA - Visión local
+  ],
+  currentModelIndex: 0,
+  currentVisionIndex: 0
+};
+
+// Mapeo de modelos NovaAI a modelos reales
+const MODEL_MAPPING = {
+  // Modelos NovaAI → Modelos OpenRouter/Ollama
+  'nova-1': 'meta-llama/llama-3.1-405b-instruct:free',
+  'nova-1-turbo': 'meta-llama/llama-3.1-70b-instruct:free',
+  'nova-uncensored': 'nousresearch/hermes-3-llama-3.1-405b:free',
+  'nova-creative': 'gryphe/mythomax-l2-13b:free',
+  'nova-fast': 'mistralai/mistral-7b-instruct:free',
+  'nova-vision': 'meta-llama/llama-3.2-90b-vision-instruct:free',
+  'nova-reasoning': 'microsoft/wizardlm-2-8x22b:free',
+  // Modelos locales (Ollama)
+  'nova-local': 'llama3.1',
+  'nova-local-vision': 'llava'
+};
 
 // ═══════════════════════════════════════════════════════════════════
 // MIDDLEWARE - AUTENTICACIÓN CON API KEY
@@ -114,16 +163,21 @@ async function authenticateApiKey(req, res, next) {
 // ═══════════════════════════════════════════════════════════════════
 
 const AVAILABLE_MODELS = {
-  // Text/Chat Models
+  // ═══════════════════════════════════════════════════════════════
+  // MODELOS DE TEXTO/CHAT (OpenRouter - Gratuitos)
+  // ═══════════════════════════════════════════════════════════════
   'nova-1': {
     id: 'nova-1',
     object: 'model',
     created: Date.now(),
     owned_by: 'novaai',
     permission: [],
-    root: 'nova-1',
+    root: 'meta-llama/llama-3.1-405b-instruct:free',
     parent: null,
-    description: 'Modelo de lenguaje optimizado para español y diseño gráfico'
+    description: 'Llama 3.1 405B - Modelo más potente gratuito. Ideal para cualquier tarea.',
+    context_window: 128000,
+    capabilities: ['text', 'chat', 'reasoning'],
+    pricing: { prompt: 0, completion: 0 }
   },
   'nova-1-turbo': {
     id: 'nova-1-turbo',
@@ -131,43 +185,334 @@ const AVAILABLE_MODELS = {
     created: Date.now(),
     owned_by: 'novaai',
     permission: [],
-    root: 'nova-1-turbo',
+    root: 'meta-llama/llama-3.1-70b-instruct:free',
     parent: null,
-    description: 'Versión rápida para tareas simples'
+    description: 'Llama 3.1 70B - Versión rápida y eficiente para tareas diarias.',
+    context_window: 128000,
+    capabilities: ['text', 'chat'],
+    pricing: { prompt: 0, completion: 0 }
   },
+  'nova-uncensored': {
+    id: 'nova-uncensored',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'novaai',
+    permission: [],
+    root: 'nousresearch/hermes-3-llama-3.1-405b:free',
+    parent: null,
+    description: 'Hermes 3 - Sin censura, respuestas directas y honestas.',
+    context_window: 128000,
+    capabilities: ['text', 'chat', 'uncensored'],
+    pricing: { prompt: 0, completion: 0 }
+  },
+  'nova-creative': {
+    id: 'nova-creative',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'novaai',
+    permission: [],
+    root: 'gryphe/mythomax-l2-13b:free',
+    parent: null,
+    description: 'MythoMax - Especializado en creatividad, storytelling y roleplay.',
+    context_window: 8192,
+    capabilities: ['text', 'chat', 'creative'],
+    pricing: { prompt: 0, completion: 0 }
+  },
+  'nova-fast': {
+    id: 'nova-fast',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'novaai',
+    permission: [],
+    root: 'mistralai/mistral-7b-instruct:free',
+    parent: null,
+    description: 'Mistral 7B - Ultra rápido, perfecto para respuestas instantáneas.',
+    context_window: 32768,
+    capabilities: ['text', 'chat'],
+    pricing: { prompt: 0, completion: 0 }
+  },
+  'nova-reasoning': {
+    id: 'nova-reasoning',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'novaai',
+    permission: [],
+    root: 'microsoft/wizardlm-2-8x22b:free',
+    parent: null,
+    description: 'WizardLM 2 - Especializado en razonamiento complejo y matemáticas.',
+    context_window: 65536,
+    capabilities: ['text', 'chat', 'reasoning', 'math'],
+    pricing: { prompt: 0, completion: 0 }
+  },
+  'nova-zephyr': {
+    id: 'nova-zephyr',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'novaai',
+    permission: [],
+    root: 'huggingfaceh4/zephyr-7b-beta:free',
+    parent: null,
+    description: 'Zephyr 7B - Modelo ágil y eficiente para conversaciones.',
+    context_window: 32768,
+    capabilities: ['text', 'chat'],
+    pricing: { prompt: 0, completion: 0 }
+  },
+  
+  // ═══════════════════════════════════════════════════════════════
+  // MODELOS MULTIMODALES - VISIÓN (Texto + Imagen)
+  // ═══════════════════════════════════════════════════════════════
   'nova-vision': {
     id: 'nova-vision',
     object: 'model',
     created: Date.now(),
     owned_by: 'novaai',
     permission: [],
-    root: 'nova-vision',
+    root: 'meta-llama/llama-3.2-90b-vision-instruct:free',
     parent: null,
-    description: 'Modelo multimodal (texto + imagen)'
+    description: 'Llama 3.2 90B Vision - Analiza y describe imágenes con precisión.',
+    context_window: 128000,
+    capabilities: ['text', 'chat', 'vision', 'image_analysis'],
+    pricing: { prompt: 0, completion: 0 }
   },
-  // Image Models
+  'nova-vision-lite': {
+    id: 'nova-vision-lite',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'novaai',
+    permission: [],
+    root: 'meta-llama/llama-3.2-11b-vision-instruct:free',
+    parent: null,
+    description: 'Llama 3.2 11B Vision - Versión rápida para análisis visual.',
+    context_window: 128000,
+    capabilities: ['text', 'chat', 'vision', 'image_analysis'],
+    pricing: { prompt: 0, completion: 0 }
+  },
+  
+  // ═══════════════════════════════════════════════════════════════
+  // MODELOS LOCALES (Ollama - Self-hosted)
+  // ═══════════════════════════════════════════════════════════════
+  'nova-local': {
+    id: 'nova-local',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'ollama',
+    permission: [],
+    root: 'llama3.1',
+    parent: null,
+    description: 'Llama 3.1 local via Ollama - Corre en tu propia máquina. Sin límites.',
+    context_window: 128000,
+    capabilities: ['text', 'chat', 'local', 'private'],
+    pricing: { prompt: 0, completion: 0 },
+    requirements: { ollama: true, gpu: 'opcional' }
+  },
+  'nova-local-vision': {
+    id: 'nova-local-vision',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'ollama',
+    permission: [],
+    root: 'llava',
+    parent: null,
+    description: 'LLaVA local - Visión por computadora en tu máquina.',
+    context_window: 4096,
+    capabilities: ['text', 'chat', 'vision', 'local', 'private'],
+    pricing: { prompt: 0, completion: 0 },
+    requirements: { ollama: true, gpu: 'recomendado' }
+  },
+  'nova-local-mistral': {
+    id: 'nova-local-mistral',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'ollama',
+    permission: [],
+    root: 'mistral',
+    parent: null,
+    description: 'Mistral 7B local - Rápido y eficiente localmente.',
+    context_window: 32768,
+    capabilities: ['text', 'chat', 'local', 'private'],
+    pricing: { prompt: 0, completion: 0 },
+    requirements: { ollama: true, gpu: 'opcional' }
+  },
+  'nova-local-deepseek': {
+    id: 'nova-local-deepseek',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'ollama',
+    permission: [],
+    root: 'deepseek-r1',
+    parent: null,
+    description: 'DeepSeek R1 local - Razonamiento avanzado en tu máquina.',
+    context_window: 64000,
+    capabilities: ['text', 'chat', 'reasoning', 'local', 'private'],
+    pricing: { prompt: 0, completion: 0 },
+    requirements: { ollama: true, gpu: 'recomendado' }
+  },
+  
+  // ═══════════════════════════════════════════════════════════════
+  // MODELOS DE IMÁGEN
+  // ═══════════════════════════════════════════════════════════════
   'nova-dalle': {
     id: 'nova-dalle',
     object: 'model',
     created: Date.now(),
-    owned_by: 'novaai',
+    owned_by: 'pollinations',
     permission: [],
-    root: 'nova-dalle',
+    root: 'pollinations',
     parent: null,
-    description: 'Generación de imágenes profesionales'
+    description: 'Generación de imágenes gratuita vía Pollinations AI.',
+    capabilities: ['image_generation'],
+    pricing: { image: 0 }
   },
-  // Audio Models
+  'nova-sd': {
+    id: 'nova-sd',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'stability',
+    permission: [],
+    root: 'stable-diffusion',
+    parent: null,
+    description: 'Stable Diffusion - Imágenes artísticas y comerciales.',
+    capabilities: ['image_generation'],
+    pricing: { image: 0.002 }
+  },
+  
+  // ═══════════════════════════════════════════════════════════════
+  // MODELOS DE AUDIO
+  // ═══════════════════════════════════════════════════════════════
   'nova-whisper': {
     id: 'nova-whisper',
     object: 'model',
     created: Date.now(),
-    owned_by: 'novaai',
+    owned_by: 'openai',
     permission: [],
-    root: 'nova-whisper',
+    root: 'whisper-1',
     parent: null,
-    description: 'Transcripción de audio a texto'
+    description: 'Transcripción de audio a texto (ES/EN).',
+    capabilities: ['audio', 'transcription'],
+    pricing: { minute: 0.006 }
+  },
+  'nova-tts': {
+    id: 'nova-tts',
+    object: 'model',
+    created: Date.now(),
+    owned_by: 'openai',
+    permission: [],
+    root: 'tts-1',
+    parent: null,
+    description: 'Texto a voz natural.',
+    capabilities: ['audio', 'text_to_speech'],
+    pricing: { character: 0.000015 }
   }
 };
+
+// ═══════════════════════════════════════════════════════════════════
+// SISTEMA DE RETRY CON FALLBACK ENTRE MÚLTIPLES MODELOS
+// ═══════════════════════════════════════════════════════════════════
+
+async function callModelWithFallback(messages, preferredModel, temperature = 0.7, max_tokens = 500, stream = false) {
+  const modelList = [...FREE_MODELS.text]; // Lista de modelos fallback
+  let lastError = null;
+  
+  // Si es un modelo específico, intentar primero ese
+  if (preferredModel && MODEL_MAPPING[preferredModel]) {
+    const realModel = MODEL_MAPPING[preferredModel];
+    // Mover al inicio de la lista
+    const idx = modelList.indexOf(realModel);
+    if (idx > -1) {
+      modelList.splice(idx, 1);
+      modelList.unshift(realModel);
+    }
+  }
+  
+  // Intentar con cada modelo
+  for (let i = 0; i < modelList.length; i++) {
+    const modelToTry = modelList[i];
+    
+    try {
+      console.log(`🔄 Intentando con modelo: ${modelToTry}`);
+      
+      const response = await axios.post(OPENROUTER_URL, {
+        model: modelToTry,
+        messages: messages,
+        temperature: temperature,
+        max_tokens: max_tokens,
+        stream: stream
+      }, {
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://novaai-38a4e.web.app',
+          'X-Title': 'NovaAI Platform'
+        },
+        timeout: 30000 // 30 segundos timeout por modelo
+      });
+      
+      console.log(`✅ Éxito con modelo: ${modelToTry}`);
+      return {
+        success: true,
+        data: response.data,
+        model: modelToTry
+      };
+      
+    } catch (error) {
+      console.error(`❌ Error con ${modelToTry}:`, error.message);
+      lastError = error;
+      
+      // Si es rate limit, esperar antes de retry
+      if (error.response?.status === 429) {
+        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+      }
+      
+      // Continuar con siguiente modelo
+      continue;
+    }
+  }
+  
+  // Todos los modelos fallaron
+  return {
+    success: false,
+    error: lastError,
+    message: 'Todos los modelos disponibles fallaron. Intenta más tarde.'
+  };
+}
+
+// Función para llamar a Ollama (modelos locales)
+async function callOllama(messages, model = 'llama3.1', temperature = 0.7) {
+  try {
+    const response = await axios.post(`${OLLAMA_URL}/api/chat`, {
+      model: model,
+      messages: messages,
+      stream: false,
+      options: {
+        temperature: temperature
+      }
+    }, {
+      timeout: 60000
+    });
+    
+    return {
+      success: true,
+      data: {
+        choices: [{
+          message: {
+            role: 'assistant',
+            content: response.data.message.content
+          }
+        }],
+        usage: {
+          total_tokens: response.data.eval_count || 0
+        }
+      },
+      model: `ollama:${model}`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error,
+      message: 'Ollama no disponible. ¿Está corriendo en localhost:11434?'
+    };
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // ENDPOINTS API
@@ -216,7 +561,7 @@ app.get('/v1/models/:id', authenticateApiKey, async (req, res) => {
 });
 
 // Chat Completions (POST /v1/chat/completions)
-// Equivalente a OpenAI GPT
+// Equivalente a OpenAI GPT - CON SISTEMA DE FALLBACK
 app.post('/v1/chat/completions', authenticateApiKey, async (req, res) => {
   try {
     const { messages, model = 'nova-1', temperature = 0.7, max_tokens = 500, stream = false } = req.body;
@@ -232,10 +577,9 @@ app.post('/v1/chat/completions', authenticateApiKey, async (req, res) => {
       });
     }
     
-    // Calcular costo (simulado)
+    // Calcular costo estimado
     const inputTokens = JSON.stringify(messages).length / 4;
-    const maxOutputTokens = max_tokens;
-    const estimatedCost = (inputTokens + maxOutputTokens) * 0.001; // $0.001 por token
+    const estimatedCost = (inputTokens + max_tokens) * 0.001;
     
     // Verificar créditos
     if (req.user.credits < estimatedCost && req.user.plan !== 'unlimited') {
@@ -248,29 +592,41 @@ app.post('/v1/chat/completions', authenticateApiKey, async (req, res) => {
       });
     }
     
-    // Llamar a OpenRouter (o tu backend de IA)
-    const response = await axios.post(OPENROUTER_URL, {
-      model: 'anthropic/claude-3.5-sonnet:beta',
-      messages: messages,
-      temperature: temperature,
-      max_tokens: max_tokens,
-      stream: stream
-    }, {
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://novaai-38a4e.web.app',
-        'X-Title': 'NovaAI Platform'
-      },
-      timeout: 60000
-    });
+    let result;
     
-    // Formatear respuesta tipo OpenAI
-    const completion = response.data;
+    // Verificar si es modelo local (Ollama)
+    if (model.startsWith('nova-local')) {
+      const ollamaModel = MODEL_MAPPING[model] || 'llama3.1';
+      result = await callOllama(messages, ollamaModel, temperature);
+      
+      if (!result.success) {
+        return res.status(503).json({
+          error: {
+            message: result.message,
+            type: 'service_unavailable',
+            code: 'ollama_unavailable'
+          }
+        });
+      }
+    } else {
+      // Usar sistema de fallback con múltiples modelos
+      result = await callModelWithFallback(messages, model, temperature, max_tokens, stream);
+      
+      if (!result.success) {
+        return res.status(503).json({
+          error: {
+            message: result.message,
+            type: 'service_unavailable',
+            code: 'all_models_failed'
+          }
+        });
+      }
+    }
+    
+    // Procesar respuesta
+    const completion = result.data;
     const responseId = `chatcmpl-${Date.now()}`;
-    
-    // Calcular tokens reales
-    const actualTokens = completion.usage?.total_tokens || maxOutputTokens;
+    const actualTokens = completion.usage?.total_tokens || max_tokens;
     const actualCost = actualTokens * 0.001;
     
     // Descontar créditos
@@ -285,6 +641,7 @@ app.post('/v1/chat/completions', authenticateApiKey, async (req, res) => {
       userId: req.user.id,
       type: 'chat_completion',
       model: model,
+      actualModel: result.model,
       tokens: actualTokens,
       cost: actualCost,
       timestamp: admin.firestore.FieldValue.serverTimestamp()
@@ -296,6 +653,7 @@ app.post('/v1/chat/completions', authenticateApiKey, async (req, res) => {
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
       model: model,
+      actual_model: result.model,
       choices: [{
         index: 0,
         message: {
