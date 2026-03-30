@@ -37,7 +37,8 @@ class SkillManager {
       const files = await fs.readdir(dir);
       
       for (const file of files) {
-        if (!file.endsWith('.js')) continue;
+        // Skip .gitkeep and non-JS files
+        if (file === '.gitkeep' || !file.endsWith('.js')) continue;
         
         const skillPath = path.join(dir, file);
         const skillName = file.replace('.js', '');
@@ -47,7 +48,16 @@ class SkillManager {
           delete require.cache[require.resolve(skillPath)];
           const SkillClass = require(skillPath);
           
-          const instance = new SkillClass();
+          // Handle both class exports and object exports
+          let instance;
+          if (typeof SkillClass === 'function') {
+            instance = new SkillClass();
+          } else if (SkillClass.default && typeof SkillClass.default === 'function') {
+            instance = new SkillClass.default();
+          } else {
+            logger.warn(`Skill ${skillName} is not a class, skipping`);
+            continue;
+          }
           
           this.skills.set(skillName, {
             name: skillName,
@@ -65,7 +75,7 @@ class SkillManager {
         }
       }
     } catch (error) {
-      // Directory might be empty
+      logger.warn(`Skills directory ${dir} error:`, error.message);
     }
   }
 

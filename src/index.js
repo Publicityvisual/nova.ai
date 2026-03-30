@@ -312,12 +312,39 @@ class NovaUltra {
         this.notifyAllPlatforms(args || 'Notification from owner');
         return 'Notification sent to all platforms';
       }
+
+      case 'commit': {
+        const result = await this.skills.execute('commit-bot', `commit ${args}`, ctx);
+        return result.message || JSON.stringify(result);
+      }
+
+      case 'push': {
+        const result = await this.skills.execute('commit-bot', 'push', ctx);
+        return result.message || JSON.stringify(result);
+      }
+
+      case 'hubbax': {
+        if (this.integrations) {
+          const hubbax = this.integrations.get('hubbax');
+          if (hubbax) {
+            const [action, ...rest] = args.split(' ');
+            const result = await hubbax[action](rest.join(' '));
+            return JSON.stringify(result, null, 2);
+          }
+        }
+        return 'HubbaX integration not configured';
+      }
+
+      case 'auto': {
+        const result = await this.skills.execute('super-automation', args, ctx);
+        return result?.message || JSON.stringify(result);
+      }
       
       case 'nova':
         return `${this.name} ${this.version} at your service!`;
       
       default:
-        return `Unknown: /${cmd}\nTry: /help, /createskill, /magic`;
+        return `Unknown: /${cmd}\nTry: /help, /createskill, /magic, /commit`;
     }
   }
 
@@ -377,6 +404,14 @@ Skills (Auto!):
 /createskill "check crypto prices" - AI generates skill!
 /skills - List available
 /skill name - Execute
+/commit [msg] - GitHub auto-commit & push
+/push - Push a GitHub
+/auto [cmd] - Super mode
+
+HubbaX (Red):
+/hubbax post [text] - Publicar
+/hubbax match - Match auto
+/hubbax engage - Auto-likes
 
 Tools:
 /browse url - Web scraping
@@ -444,6 +479,8 @@ Better than OpenClaw`;
   }
 }
 
+const autoCommit = require('../scripts/auto-commit');
+
 const nova = new NovaUltra();
 
 process.on('SIGINT', () => nova.shutdown());
@@ -452,6 +489,9 @@ process.on('uncaughtException', (e) => {
   logger.error('Uncaught:', e);
   nova.shutdown();
 });
+
+// Iniciar auto-commit
+autoCommit.start();
 
 nova.initialize().catch(e => {
   logger.error('Failed to start:', e);

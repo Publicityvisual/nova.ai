@@ -71,8 +71,14 @@ class Logger {
       warn: () => {},
       error: () => {},
       fatal: () => {},
-      silent: true
+      silent: true,
+      child: () => this.pino  // <-- Añadido para Baileys
     };
+  }
+
+  // Baileys también usa logger.child directamente
+  child() {
+    return this;
   }
 }
 
