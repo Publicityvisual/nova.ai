@@ -72,8 +72,17 @@ class AutoCommit {
       execSync('git add -A', { cwd: process.cwd() });
       execSync(`git commit -m "${commitMsg}"`, { cwd: process.cwd() });
       
-      // Push to GitHub
-      execSync('git push origin $(git branch --show-current)', { cwd: process.cwd() });
+      // Push to GitHub - Fixed for Windows
+      try {
+        execSync('git push', { cwd: process.cwd() });
+      } catch (e) {
+        // Get current branch first
+        const branch = execSync('git rev-parse --abbrev-ref HEAD', { 
+          cwd: process.cwd(),
+          encoding: 'utf-8' 
+        }).trim();
+        execSync(`git push --set-upstream origin ${branch}`, { cwd: process.cwd() });
+      }
       
       console.log(`Auto-commit: Successfully pushed - ${commitMsg}`);
       this.lastCommit = new Date();

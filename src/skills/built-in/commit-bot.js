@@ -73,8 +73,9 @@ class CommitBotSkill {
       try {
         execSync('git push', { cwd });
       } catch (e) {
-        // Might need to set upstream
-        execSync('git push --set-upstream origin $(git branch --show-current)', { cwd });
+        // Get current branch
+        const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf-8' }).trim();
+        execSync(`git push --set-upstream origin ${branch}`, { cwd });
       }
 
       this.commits.push({
@@ -115,7 +116,7 @@ class CommitBotSkill {
   async status() {
     try {
       const status = execSync('git status', { cwd: process.cwd(), encoding: 'utf-8' });
-      const branch = execSync('git branch --show-current', { cwd: process.cwd(), encoding: 'utf-8' }).trim();
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: process.cwd(), encoding: 'utf-8' }).trim();
       
       return {
         success: true,
