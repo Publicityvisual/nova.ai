@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦾 Nova Ultra - WhatsApp Connect</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        .logo {
+            font-size: 4rem;
+            margin-bottom: 10px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #ff0066, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+        }
+        .status-box {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 30px;
+            margin: 20px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+        }
+        .qr-container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            display: inline-block;
+            margin: 20px 0;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .qr-container img {
+            max-width: 100%;
+            height: auto;
+        }
+        .qr-placeholder {
+            color: #333;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+        .loading {
+            color: #ff0066;
+            font-size: 1.5rem;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        .status {
+            padding: 15px 25px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 600;
+        }
+        .status.disconnected {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff6b6b;
+        }
+        .status.connecting {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+        .status.connected {
+            background: rgba(0, 255, 0, 0.2);
+            color: #4caf50;
+        }
+        .instructions {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .instructions h3 {
+            color: #ff0066;
+            margin-bottom: 15px;
+        }
+        .instructions ol {
+            padding-left: 20px;
+            color: #ccc;
+        }
+        .instructions li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        .log {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+            color: #0f0;
+        }
+        .log-entry {
+            margin: 3px 0;
+            padding: 2px 0;
+        }
+        .log-entry.error { color: #ff6b6b; }
+        .log-entry.success { color: #4caf50; }
+        .log-entry.info { color: #64b5f6; }
+        button {
+            background: linear-gradient(135deg, #ff0066, #ff6b6b);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 0, 102, 0.3);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .feature {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 3px solid #ff0066;
+        }
+        .feature strong {
+            color: #ff6b6b;
+        }
+        @media (max-width: 500px) {
+            .features { grid-template-columns: 1fr; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🦞</div>
+        <h1>NOVA ULTRA</h1>
+        <p class="subtitle">WhatsApp Local Connector</p>
+
+        <div class="status-box">
+            <div id="status" class="status disconnected">
+                ⚠️ Esperando inicio...
+            </div>
+
+            <div id="qr-container" class="qr-container">
+                <div class="qr-placeholder">
+                    <p>🔧 Iniciando servidor...</p>
+                    <p class="loading">Por favor espera</p>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button id="restart-btn" onclick="restartConnection()" style="display:none;">
+                    🔄 Reconectar
+                </button>
+                <button id="logs-btn" onclick="toggleLogs()">
+                    📋 Ver Logs
+                </button>
+            </div>
+        </div>
+
+        <div id="logs" class="log" style="display:none;">
+            <div class="log-entry info">🚀 Nova Ultra v2.0.0 iniciado...</div>
+        </div>
+
+        <div class="instructions">
+            <h3>📱 Cómo Conectar WhatsApp</h3>
+            <ol>
+                <li><strong>Abre WhatsApp</strong> en tu teléfono</li>
+                <li>Ve a <strong>Menú (3 puntos) → Dispositivos vinculados</strong></li>
+                <li>Toca <strong>Vincular un dispositivo</strong></li>
+                <li><strong>Apunta la cámara</strong> al QR code de arriba</li>
+                <li>¡Listo! Nova responderá automáticamente</li>
+            </ol>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <strong>🤖 AI Sin Censura</strong><br>
+                Llama 3.1, GPT-4o, Claude 3.5
+            </div>
+            <div class="feature">
+                <strong>🛡️ 13+ Skills</strong><br>
+                Stocks, QR, Contraseñas, etc.
+            </div>
+            <div class="feature">
+                <strong>🧠 Memoria IA</strong><br>
+                Recuerda conversaciones
+            </div>
+            <div class="feature">
+                <strong>📸 Multimodal</strong><br>
+                Analiza imágenes
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const qrContainer = document.getElementById('qr-container');
+        const logsEl = document.getElementById('logs');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Actualizar cada 2 segundos
+        setInterval(updateStatus, 2000);
+
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/whatsapp-status');
+                const data = await response.json();
+                
+                if (data.connected) {
+                    statusEl.className = 'status connected';
+                    statusEl.textContent = '✅ WhatsApp Conectado - ' + data.phone;
+                    qrContainer.innerHTML = '<div style="color:#4caf50;font-size:1.5rem;">🎉 ¡Conectado!</div>';
+                    restartBtn.style.display = 'none';
+                } else if (data.qr) {
+                    statusEl.className = 'status connecting';
+                    statusEl.textContent = '⏳ Escanea el QR code con WhatsApp...';
+                    qrContainer.innerHTML = `<img src="${data.qr}" alt="QR Code">`;
+                    restartBtn.style.display = 'inline-block';
+                } else {
+                    statusEl.className = 'status disconnected';
+                    statusEl.textContent = '⚠️ Desconectado';
+                    restartBtn.style.display = 'inline-block';
+                }
+
+                // Actualizar logs
+                if (data.logs) {
+                    data.logs.forEach(log => addLog(log));
+                }
+            } catch (error) {
+                statusEl.textContent = '🔴 Error de conexión - ¿Servidor iniciado?';
+                addLog({type: 'error', message: error.message});
+            }
+        }
+
+        function restartConnection() {
+            fetch('/api/whatsapp-restart', {method: 'POST'});
+            addLog({type: 'info', message: 'Reiniciando conexión...'});
+        }
+
+        function toggleLogs() {
+            logsEl.style.display = logsEl.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addLog(log) {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${log.type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${log.message}`;
+            logsEl.appendChild(entry);
+            logsEl.scrollTop = logsEl.scrollHeight;
+        }
+
+        // Primera carga
+        updateStatus();
+    </script>
+</body>
+</html>
