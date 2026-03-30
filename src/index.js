@@ -125,15 +125,15 @@ class NovaUltra {
   }
 
   async handleMessage(platform, text, metadata) {
-    const { from, userId } = metadata;
-    if (!text) return;
+    const { from, userId, imageData } = metadata;
+    if (!text && !imageData) return;
 
-    logger.info(`[${platform.toUpperCase()}] ${userId}: ${text.substring(0, 50)}...`);
+    logger.info(`[${platform.toUpperCase()}] ${userId}: ${text ? text.substring(0, 50) : '[IMAGE]'}`);
 
     try {
       const context = await this.memory.getContext(userId, 20);
       const facts = await this.memory.recall(userId);
-      const semantic = await this.memory.semanticSearch(userId, text, 3);
+      const semantic = await this.memory.semanticSearch(userId, text || 'imagen', 3);
 
       const enrichedContext = {
         userId,
@@ -141,8 +141,14 @@ class NovaUltra {
         context,
         facts: Array.isArray(facts) ? facts : [facts],
         semantic,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        imageData // Pass image data if present
       };
+
+      // If only image without text, treat as analyze command
+      if (imageData && !text.startsWith('/')) {
+        text = '/analizar';
+      }
 
       if (text.startsWith('/')) {
         const response = await this.handleCommand(text, enrichedContext);
@@ -150,16 +156,17 @@ class NovaUltra {
         return;
       }
 
-      const aiResponse = await this.ai.process(text, {
+      const aiResponse = await this.ai.process(text || 'Describe esta imagen', {
         userId,
         context: enrichedContext,
-        memory: this.memory
+        memory: this.memory,
+        imageData
       });
 
-      await this.memory.addMessage(userId, 'user', text);
+      await this.memory.addMessage(userId, 'user', text || '[IMAGE]');
       await this.memory.addMessage(userId, 'assistant', aiResponse);
       await this.sendToPlatform(platform, from, aiResponse);
-      await this.memory.logEvent(userId, 'message', { platform, text: text.substring(0, 100) });
+      await this.memory.logEvent(userId, 'message', { platform, text: text ? text.substring(0, 100) : '[IMAGE]' });
 
     } catch (error) {
       logger.error('Message error:', error);
@@ -260,6 +267,47 @@ class NovaUltra {
         return `Magic translation: ${understood}`;
       }
       
+      case 'analizar':
+      case 'analyze': {
+        // Check if there's image data in context
+        if (ctx.imageData) {
+          const result = await this.ai.processMultimodal(
+            args || 'Describe esta imagen detalladamente.',
+            ctx.imageData,
+            { userId }
+          );
+          return result;
+        }
+        return '🖼️ Para analizar imágenes:\nWhatsApp: Envía imagen con caption\nTelegram: Responde a imagen con /analizar\nTambién puedes usar: /describir [url-imagen]';
+      }
+      
+      case 'describir':
+      case 'describe': {
+        if (!args) return 'Uso: /describir [url-de-imagen]';
+        // Descargar y analizar
+        try {
+          const axios = require('axios');
+          const response = await axios.get(args, { responseType: 'arraybuffer', timeout: 10000 });
+          const base64 = Buffer.from(response.data, 'binary').toString('base64');
+          const mimeType = response.headers['content-type'] || 'image/jpeg';
+          
+          const result = await this.ai.processMultimodal(
+            'Describe esta imagen detalladamente.',
+            `data:${mimeType};base64,${base64}`,
+            { userId }
+          );
+          return result;
+        } catch (error) {
+          return `Error descargando imagen: ${error.message}`;
+        }
+      }
+      
+      case 'vision': {
+        const model = await this.ai.listModels();
+        return '🖼️ Modelos Visión disponibles:\n\n' +
+               this.ai.multimodalModels.map(m => `• ${m.name}`).join('\n');
+      }
+      
       case 'notifyall': {
         this.notifyAllPlatforms(args || 'Notification from owner');
         return 'Notification sent to all platforms';
@@ -304,10 +352,20 @@ class NovaUltra {
 
   getEpicHelp() {
     return `${this.name} ${this.version} COMMANDS
+⚡ Sin Censura con OpenRouter
 
 AI:
-/model [name] - Switch AI (venice, claude, gpt, groq)
-/models - List available
+/model [name] - Cambiar modelo
+/models - Ver todos (Sin Censura + Multimodal)
+/analizar - Analizar imagen
+
+🤖 Modelos disponibles:
+• Llama 3.1 405B (Sin Censura)
+• Hermes 3 405B (Sin Censura)  
+• Rogue Rose 103B (Sin Censura EXTREMA)
+• GPT-4o Multimodal
+• Claude 3.5 Sonnet Multimodal
+• Gemini Flash 1.5 (1M tokens)
 
 Memory (Vector!):
 /remember key|value - Save fact

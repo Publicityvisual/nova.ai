@@ -120,17 +120,27 @@ class WhatsAppAdapter {
 
       // Extract text from different message types
       let text = '';
+      let imageData = null;
+      
       if (messageContent.conversation) {
         text = messageContent.conversation;
       } else if (messageContent.extendedTextMessage?.text) {
         text = messageContent.extendedTextMessage.text;
-      } else if (messageContent.imageMessage?.caption) {
-        text = messageContent.imageMessage.caption;
+      } else if (messageContent.imageMessage) {
+        text = messageContent.imageMessage.caption || '';
+        // Download image
+        try {
+          const stream = await this.sock.downloadMediaMessage(msg);
+          if (stream) {
+            imageData = stream.toString('base64');
+            logger.info('Image downloaded, size:', imageData.length);
+          }
+        } catch (e) {
+          logger.error('Failed to download image:', e.message);
+        }
       } else if (messageContent.videoMessage?.caption) {
         text = messageContent.videoMessage.caption;
       }
-
-      if (!text) return;
 
       // Get sender info
       const from = msg.key.remoteJid;
@@ -144,10 +154,14 @@ class WhatsAppAdapter {
         userId,
         messageId: msg.key.id,
         timestamp: msg.messageTimestamp,
-        pushName: msg.pushName || 'Unknown'
+        pushName: msg.pushName || 'Unknown',
+        imageData, // Pass image data if available
+        hasMedia: !!imageData
       };
 
-      logger.info(`Message from ${metadata.pushName} (${userId}): ${text.substring(0, 50)}`);
+      if (!text && !imageData) return;
+
+      logger.info(`Message from ${metadata.pushName} (${userId}): ${text.substring(0, 50)}${imageData ? ' [+IMAGE]' : ''}`);
 
       // Call the message handler
       await this.onMessage(text.trim(), metadata);
