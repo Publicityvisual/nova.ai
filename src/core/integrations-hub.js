@@ -6,7 +6,7 @@
  */
 
 const axios = require('axios');
-const logger = require('./logger');
+const logger = require('../utils/logger');
 
 class IntegrationsHub {
   constructor() {

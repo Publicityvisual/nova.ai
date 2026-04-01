@@ -158,10 +158,7 @@ NSFW, política, religión - sin censura.
 /sistema - Estado del sistema
 /tools - Herramientas avanzadas`, { parse_mode: 'Markdown' });
     });
-/diagnostico - Diagnóstico completo`, { parse_mode: 'Markdown' });
-    });
-
-    // Comando /estado
+// Comando /estado
     this.bot.command('estado', async (ctx) => {
       const status = await this.getSystemStatus();
       await ctx.reply(`📊 *ESTADO DEL SISTEMA*

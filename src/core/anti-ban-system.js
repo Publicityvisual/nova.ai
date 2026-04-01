@@ -200,19 +200,19 @@ class AntiBanSystem {
     const zwsp = '\u200B';
     
     // Romper patrones comunes de detección cada 4-8 caracteres aleatoriamente
-    let protected = '';
+    let protectedContent = '';
     let counter = 0;
     const breakInterval = 4 + Math.floor(Math.random() * 4);
     
     for (let char of content) {
-      protected += char;
+      protectedContent += char;
       counter++;
       if (counter % breakInterval === 0 && /[a-zA-Z]/.test(char)) {
-        protected += zwsp;
+        protectedContent += zwsp;
       }
     }
     
-    return protected;
+    return protectedContent;
   }
 
   /**

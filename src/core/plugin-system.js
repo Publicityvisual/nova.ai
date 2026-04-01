@@ -6,7 +6,7 @@
 
 const fs = require('fs-extra');
 const path = require('path');
-const logger = require('./logger');
+const logger = require('../utils/logger');
 
 class PluginSystem {
   constructor() {

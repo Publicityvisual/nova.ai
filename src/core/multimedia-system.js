@@ -8,7 +8,7 @@
 const axios = require('axios');
 const fs = require('fs-extra');
 const path = require('path');
-const logger = require('./logger');
+const logger = require('../utils/logger');
 
 class MultimediaSystem {
   constructor() {
@@ -350,7 +350,7 @@ class MultimediaSystem {
   }
 
   // ═══════════════════════════════════════════════════════════════
-   Helper methods
+  // Helper methods
   // ═══════════════════════════════════════════════════════════════
 
   async resizeImage(buffer, options) {

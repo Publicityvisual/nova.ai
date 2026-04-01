@@ -9,7 +9,7 @@ const { exec } = require('child_process');
 const util = require('util');
 const fs = require('fs-extra');
 const path = require('path');
-const logger = require('./logger');
+const logger = require('../utils/logger');
 
 const execAsync = util.promisify(exec);
 
