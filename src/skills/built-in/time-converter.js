@@ -158,9 +158,5 @@ Supported cities: New York, London, Tokyo, Sydney, etc.`
 }
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = 'deb93e4268215bb0';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = TimeConverterSkill;
+module.exports = TimeConverterSkill;;

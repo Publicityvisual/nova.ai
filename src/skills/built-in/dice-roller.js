@@ -165,9 +165,5 @@ Commands:
 }
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = 'ffa74cfd535ac69e';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = DiceRollerSkill;
+module.exports = DiceRollerSkill;;

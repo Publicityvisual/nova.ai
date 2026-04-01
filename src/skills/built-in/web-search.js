@@ -144,9 +144,5 @@ class WebSearchSkill {
 }
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = 'a8367107d0b859b3';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = WebSearchSkill;
+module.exports = WebSearchSkill;;

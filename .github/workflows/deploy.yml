@@ -1,0 +1,76 @@
+# GitHub Actions - Auto Deploy a Cloudflare Workers
+# Cada push a main despliega automaticamente
+
+name: Deploy Sofia Enterprise
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Cloudflare
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Install Wrangler
+      run: npm install -g wrangler
+      
+    - name: Setup KV Namespace (if not exists)
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      run: |
+        # Crear KV namespace si no existe
+        wrangler kv:namespace create "SOFIA_KV" --env production || true
+        
+    - name: Set Secrets
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
+        GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GROQ_KEY: ${{ secrets.GROQ_API_KEY }}
+      run: |
+        wrangler secret put TELEGRAM_TOKEN --env production <<< "$TELEGRAM_TOKEN"
+        wrangler secret put OPENROUTER_KEY --env production <<< "$OPENROUTER_KEY"
+        [ ! -z "$GEMINI_KEY" ] && wrangler secret put GEMINI_API_KEY --env production <<< "$GEMINI_KEY" || echo "Gemini skip"
+        [ ! -z "$GROQ_KEY" ] && wrangler secret put GROQ_API_KEY --env production <<< "$GROQ_KEY" || echo "Groq skip"
+      
+    - name: Deploy Worker
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      run: |
+        wrangler deploy --env production
+        
+    - name: Setup Telegram Webhook
+      run: |
+        WORKER_URL=$(wrangler info --env production | grep "Worker URL" | awk '{print $3}')
+        if [ ! -z "$WORKER_URL" ]; then
+          curl -s "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/setWebhook?url=${WORKER_URL}/webhook"
+          echo "✅ Webhook configurado: ${WORKER_URL}/webhook"
+        fi
+      
+    - name: Comment PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '🚀 **Sofia Enterprise** desplegada en Cloudflare Workers!\n\nPreview URL: Disponible en el dashboard'
+          })

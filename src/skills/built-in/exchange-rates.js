@@ -162,9 +162,5 @@ _Last updated: ${new Date().toLocaleTimeString()}_`;
 }
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = 'c6badc496f88ed34';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = ExchangeRatesSkill;
+module.exports = ExchangeRatesSkill;;

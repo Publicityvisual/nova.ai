@@ -48,27 +48,94 @@ class TelegramAdapter {
   }
 
   async sendMessage(chatId, content) {
-    try {
-      await this.bot.sendMessage(chatId, content.substring(0, 4096), { 
-        parse_mode: 'Markdown' 
-      });
-      return true;
-    } catch (error) {
-      // Try without markdown
+    const maxLength = 4096;
+    const chunks = this.splitMessage(content, maxLength);
+    
+    for (const chunk of chunks) {
       try {
-        await this.bot.sendMessage(chatId, content.substring(0, 4096));
-        return true;
-      } catch (e) {
-        logger.error('Telegram send failed:', e);
-        return false;
+        // Intentar con Markdown
+        const escapedChunk = this.escapeMarkdown(chunk);
+        await this.bot.sendMessage(chatId, escapedChunk, { 
+          parse_mode: 'MarkdownV2' 
+        });
+      } catch (error) {
+        // Si falla por formato, intentar sin formato
+        try {
+          await this.bot.sendMessage(chatId, chunk);
+        } catch (e) {
+          logger.error('Telegram send failed:', e.message);
+          // Intentar enviar mensaje sin acentos ni caracteres especiales
+          try {
+            const safeChunk = chunk.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            await this.bot.sendMessage(chatId, safeChunk.substring(0, maxLength));
+          } catch (e2) {
+            logger.error('Telegram send completely failed:', e2.message);
+            return false;
+          }
+        }
       }
     }
+    return true;
+  }
+
+  splitMessage(text, maxLength) {
+    const chunks = [];
+    while (text.length > maxLength) {
+      const chunk = text.substring(0, maxLength);
+      const lastNewline = chunk.lastIndexOf('\n');
+      const lastSpace = chunk.lastIndexOf(' ');
+      
+      // Preferir cortar en nueva línea
+      if (lastNewline > maxLength * 0.5) {
+        chunks.push(text.substring(0, lastNewline));
+        text = text.substring(lastNewline + 1);
+      } else if (lastSpace > maxLength * 0.8) {
+        chunks.push(text.substring(0, lastSpace));
+        text = text.substring(lastSpace + 1);
+      } else {
+        chunks.push(text.substring(0, maxLength));
+        text = text.substring(maxLength);
+      }
+    }
+    chunks.push(text);
+    return chunks;
+  }
+
+  escapeMarkdown(text) {
+    // Escapar caracteres especiales de MarkdownV2
+    return text
+      .replace(/\\/g, '\\\\')
+      .replace(/_/g, '\\_')
+      .replace(/\*/g, '\\*')
+      .replace(/\[/g, '\\[')
+      .replace(/\]/g, '\\]')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)')
+      .replace(/~/g, '\\~')
+      .replace(/`/g, '\\`')
+      .replace(/>/g, '\\>')
+      .replace(/#/g, '\\#')
+      .replace(/\+/g, '\\+')
+      .replace(/-/g, '\\-')
+      .replace(/=/g, '\\=')
+      .replace(/\|/g, '\\|')
+      .replace(/\{/g, '\\{')
+      .replace(/\}/g, '\\}')
+      .replace(/\./g, '\\.')
+      .replace(/!/g, '\\!');
   }
 
   async disconnect() {
     if (this.bot) {
-      this.bot.stopPolling();
-      this.connected = false;
+      try {
+        this.bot.stopPolling();
+        // Limpiar event listeners
+        this.bot.removeAllListeners();
+        this.connected = false;
+        logger.info('Telegram bot disconnected');
+      } catch (error) {
+        logger.error('Error disconnecting Telegram:', error.message);
+      }
     }
   }
 }

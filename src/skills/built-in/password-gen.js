@@ -189,9 +189,5 @@ Default: 20 characters, strong mixed`
 }
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = 'e46563b15f6ecc93';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = PasswordGenSkill;
+module.exports = PasswordGenSkill;;

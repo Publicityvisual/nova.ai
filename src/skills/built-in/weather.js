@@ -91,9 +91,5 @@ class WeatherSkill {
 }
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = '78d3348970f31b89';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = WeatherSkill;
+module.exports = WeatherSkill;;

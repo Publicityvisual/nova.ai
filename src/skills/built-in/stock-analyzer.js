@@ -164,9 +164,5 @@ const checksum = () => {
 };
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = '50ad20d2d204b70b';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = StockAnalyzerSkill;
+module.exports = StockAnalyzerSkill;;

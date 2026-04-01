@@ -23,6 +23,22 @@ class WhatsAppAdapter {
     this.sock = null;
     this.connected = false;
     this.authFolder = path.join('./data/sessions', this.sessionName);
+    this.retryCount = 0;
+    this.maxRetries = 10;
+    
+    // 🛡️ PROTECCIÓN ANTI-BANEO
+    this.rateLimiter = new Map();
+    this.lastMessageTime = 0;
+    this.messageQueue = [];
+    this.processingQueue = false;
+    this.lastChatJid = null;
+    
+    this.limits = {
+      maxMessagesPerMinute: 20,
+      maxMessagesPerHour: 200,
+      minDelayBetweenMsgs: 2000,
+      typingDelayPerChar: 50
+    };
   }
 
   async initialize() {
@@ -71,14 +87,23 @@ class WhatsAppAdapter {
           this.onDisconnect();
 
           if (shouldReconnect) {
-            logger.info('Reconnecting...');
-            setTimeout(() => this.initialize(), 5000);
+            this.retryCount++;
+            if (this.retryCount <= this.maxRetries) {
+              const delay = Math.min(5000 * Math.pow(2, this.retryCount - 1), 300000);
+              logger.info(`Reconnecting in ${delay/1000}s (attempt ${this.retryCount}/${this.maxRetries})...`);
+              setTimeout(() => this.initialize(), delay);
+            } else {
+              logger.error('Max retries reached. Please restart manually.');
+              this.retryCount = 0;
+            }
           } else {
             logger.error('Logged out, please scan QR again');
+            this.retryCount = 0;
           }
         } else if (connection === 'open') {
           logger.info('WhatsApp connection established!');
           this.connected = true;
+          this.retryCount = 0; // ← Reset on successful connection
           this.onConnect();
           
           // Notify owner
@@ -171,6 +196,83 @@ class WhatsAppAdapter {
     }
   }
 
+  /**
+   * 🛡️ Verificar rate limits
+   */
+  checkRateLimit(userId) {
+    const now = Date.now();
+    const userData = this.rateLimiter.get(userId) || { 
+      count: 0, 
+      lastReset: now,
+      hourCount: 0,
+      hourReset: now 
+    };
+    
+    // Reset contador por minuto
+    if (now - userData.lastReset > 60000) {
+      userData.count = 0;
+      userData.lastReset = now;
+    }
+    
+    // Reset contador por hora
+    if (now - userData.hourReset > 3600000) {
+      userData.hourCount = 0;
+      userData.hourReset = now;
+    }
+    
+    // Verificar límites
+    if (userData.count >= this.limits.maxMessagesPerMinute) {
+      return { allowed: false, reason: 'RATE_LIMIT_MINUTE', retryAfter: 60 };
+    }
+    
+    if (userData.hourCount >= this.limits.maxMessagesPerHour) {
+      return { allowed: false, reason: 'RATE_LIMIT_HOUR', retryAfter: 3600 };
+    }
+    
+    userData.count++;
+    userData.hourCount++;
+    this.rateLimiter.set(userId, userData);
+    
+    return { allowed: true };
+  }
+
+  /**
+   * ⏱️ Delay humanizado
+   */
+  async humanDelay(text = '', jid = null) {
+    const now = Date.now();
+    const timeSinceLastMessage = now - this.lastMessageTime;
+    
+    // Calcular delay basado en longitud del texto
+    const typingTime = Math.min(text.length * this.limits.typingDelayPerChar, 5000);
+    const minDelay = Math.max(this.limits.minDelayBetweenMsgs - timeSinceLastMessage, 0);
+    const totalDelay = minDelay + typingTime;
+    
+    if (totalDelay > 0 && jid) {
+      // Enviar "escribiendo..."
+      try {
+        await this.sock.sendPresenceUpdate('composing', jid);
+      } catch (e) {
+        // Ignorar errores de presence
+      }
+      
+      await this.sleep(totalDelay);
+      
+      // Quitar "escribiendo..."
+      try {
+        await this.sock.sendPresenceUpdate('paused', jid);
+      } catch (e) {}
+    } else if (totalDelay > 0) {
+      await this.sleep(totalDelay);
+    }
+    
+    this.lastMessageTime = Date.now();
+  }
+
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   async sendMessage(to, content, options = {}) {
     try {
       if (!this.connected || !this.sock) {
@@ -179,6 +281,18 @@ class WhatsAppAdapter {
 
       // Normalize JID
       const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+      this.lastChatJid = jid;
+
+      // 🛡️ Verificar rate limits
+      const rateCheck = this.checkRateLimit(jid);
+      if (!rateCheck.allowed) {
+        logger.warn(`Rate limit hit for ${jid}: ${rateCheck.reason}`);
+        throw new Error(`Rate limited: ${rateCheck.reason}. Retry after ${rateCheck.retryAfter}s`);
+      }
+
+      // ⏱️ Delay humanizado antes de enviar
+      const textContent = typeof content === 'string' ? content : (options.caption || '');
+      await this.humanDelay(textContent, jid);
 
       // Send text or media
       if (typeof content === 'string') {
@@ -203,6 +317,18 @@ class WhatsAppAdapter {
       return true;
 
     } catch (error) {
+      // 🛡️ Manejar errores específicos de ban
+      if (error.message?.includes('rate')) {
+        logger.error('Rate limit error:', error.message);
+        // No relanzar para evitar crash
+        return false;
+      }
+      if (error.message?.includes('403') || error.message?.includes('forbidden')) {
+        logger.error('⚠️ POSSIBLE BAN detected:', error.message);
+        // Notificar y detener operaciones
+        this.emit('banDetected', { error: error.message, user: to });
+        return false;
+      }
       logger.error('Failed to send message:', error);
       throw error;
     }

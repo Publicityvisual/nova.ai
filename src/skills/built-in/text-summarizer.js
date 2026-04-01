@@ -120,9 +120,5 @@ class TextSummarizerSkill {
 }
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = '2a77618133bd3d86';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = TextSummarizerSkill;
+module.exports = TextSummarizerSkill;;

@@ -1,0 +1,30 @@
+# ═══════════════════════════════════════════════════════════════════
+# NOVA OPENCLAW - Configuración Cloudflare Workers
+# ═══════════════════════════════════════════════════════════════════
+
+name = "nova-openclaw"
+main = "NOVA-OPENCLAW.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# KV Namespace para memoria persistente (sin base de datos)
+[[kv_namespaces]]
+binding = "NOVA_KV"
+id = "nova_memory_kv"
+
+# Variables de entorno (las configuras en el dashboard de Cloudflare)
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+# Configuración de triggers (cron jobs para procesamiento en segundo plano)
+# [[triggers]]
+# crons = ["0 */6 * * *"]
+
+# Observabilidad
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+# Limites (ilimitado prácticamente)
+[limits]
+cpu_ms = 50000  # 50 segundos de CPU por request (muy alto)

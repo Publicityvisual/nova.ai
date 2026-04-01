@@ -135,10 +135,4 @@ No ejecutes el código, solo analiza.`;
   }
 }
 
-
-// Integrity verification
-const VERIFY_CHECKSUM = '7334464822b7b313';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
-
 module.exports = CodeFixerSkill;

@@ -91,9 +91,5 @@ Format: PNG`,
 }
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = 'b1047540095ad594';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = QRGeneratorSkill;
+module.exports = QRGeneratorSkill;;

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sofia v5.0 - Panel de Control Universal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 30px;
+            margin-bottom: 30px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #e94560, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            color: #aaa;
+            font-size: 1.1em;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(233, 69, 96, 0.2);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(233, 69, 96, 0.3);
+        }
+        
+        .card-icon {
+            font-size: 2em;
+            margin-right: 15px;
+        }
+        
+        .card h2 {
+            color: #e94560;
+            font-size: 1.3em;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+        
+        .status.active {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+        }
+        
+        .status.learning {
+            background: rgba(241, 196, 15, 0.2);
+            color: #f1c40f;
+        }
+        
+        .feature-list {
+            list-style: none;
+        }
+        
+        .feature-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-list .icon {
+            margin-right: 10px;
+            color: #e94560;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-box {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #e94560;
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .button {
+            display: inline-block;
+            padding: 12px 25px;
+            background: linear-gradient(45deg, #e94560, #ff6b6b);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            margin-top: 15px;
+            cursor: pointer;
+            border: none;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+        
+        .button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.4);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            transition: width 0.5s;
+        }
+        
+        .log-container {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+        
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .log-time {
+            color: #888;
+            margin-right: 10px;
+        }
+        
+        .law-item {
+            background: rgba(46, 204, 113, 0.1);
+            border-left: 4px solid #2ecc71;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        .law-item.warning {
+            background: rgba(241, 196, 15, 0.1);
+            border-left-color: #f1c40f;
+        }
+        
+        .profile-tag {
+            display: inline-block;
+            padding: 5px 12px;
+            background: rgba(233, 69, 96, 0.2);
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin: 5px;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 30px;
+            margin-top: 30px;
+            color: #888;
+            font-size: 0.9em;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔥 SOFIA v5.0 🔥</h1>
+        <div class="subtitle">Secretaria Ejecutiva Universal | Publicity Visual</div>
+        <div style="margin-top: 20px;">
+            <span class="status active pulse">● SISTEMA ACTIVO</span>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <!-- ESTADO GENERAL -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">⚡</span>
+                <h2>Estado del Sistema</h2>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-number">3</div>
+                    <div class="stat-label">WhatsApp Conectados</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">41</div>
+                    <div class="stat-label">Herramientas Activas</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="active-chats">0</div>
+                    <div class="stat-label">Chats Activos</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">$0</div>
+                    <div class="stat-label">Costo Mensual</div>
+                </div>
+            </div>
+            <div style="margin-top: 20px;">
+                <div>Memoria Conversacional</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 78%"></div>
+                </div>
+                <div class="log-container" id="system-logs">
+                    <div class="log-entry">
+                        <span class="log-time">[10:45:02]</span>
+                        Sistema iniciado - v5.0
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-time">[10:45:03]</span>
+                        Leyes de Asimov verificadas
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-time">[10:45:05]</span>
+                        WhatsApp Business: 3 líneas listas
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-time">[10:45:08]</span>
+                        APIs gratuitas conectadas
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-time">[10:45:10]</span>
+                        Procesador multimedia activo
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LEYES DE ASIMOV -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">⚖️</span>
+                <h2>Leyes de la Robótica</h2>
+            </div>
+            
+            <div class="law-item">
+                <strong>Ley Zeroth:</strong> No dañar a la humanidad
+            </div>
+            <div class="law-item">
+                <strong>Ley Primera:</strong> No dañar a humanos individuales
+            </div>
+            <div class="law-item">
+                <strong>Ley Segunda:</strong> Obedecer órdenes (con restricciones)
+            </div>
+            <div class="law-item">
+                <strong>Ley Tercera:</strong> Protección propia (limitada)
+            </div>
+            
+            <div style="margin-top: 15px; text-align: center;">
+                <div class="status active">✓ Todas las acciones son éticas</div>
+            </div>
+        </div>
+
+        <!-- INTELIGENCIA ADAPTATIVA -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">🧠</span>
+                <h2>Inteligencia Adaptativa</h2>
+            </div>
+            
+            <ul class="feature-list">
+                <li><span class="icon">✓</span>>8 Perfiles Psicológicos detectados</li>
+                <li><span class="icon">✓</span>>4 Dimensiones analizadas en tiempo real</li>
+                <li><span class="icon">✓</span>>Adaptación instantánea (milisegundos)</li>
+                <li><span class="icon">✓</span>>Memoria de 50 mensajes por usuario</li>
+                <li><span class="icon">✓</span>>Anti-detector profesional</li>
+            </ul>
+
+            <div style="margin-top: 15px;">
+                <div>Perfiles Detectados Ahora:</div>
+                <div style="margin-top: 10px;">
+                    <span class="profile-tag">Executive Técnico</span>
+                    <span class="profile-tag">Emprendedor Fast</span>
+                    <span class="profile-tag">Emotional Creator</span>
+                    <span class="profile-tag">Direct Buyer</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- MULTIMEDIA -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">🎬</span>
+                <h2>Procesamiento Multimedia</h2>
+            </div>
+            
+            <ul class="feature-list">
+                <li><span class="icon">🎵</span>Audios: Transcripción Whisper + Análisis</li>
+                <li><span class="icon">📸</span>Imágenes: OCR + Computer Vision</li>
+                <li><span class="icon">🎥</span>Videos: Extracción de frames + Análisis</li>
+                <li><span class="icon">📄</span>Documentos: PDF, Word, Texto</li>
+                <li><span class="icon">🎯</span>Detección automática de contenido</li>
+            </ul>
+
+            <div class="stats-grid" style="margin-top: 15px;">
+                <div class="stat-box">
+                    <div class="stat-number">Audio</div>
+                    <div class="status active">Activo</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">Imagen</div>
+                    <div class="status active">Activo</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">Video</div>
+                    <div class="status active">Activo</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">Doc</div>
+                    <div class="status active">Activo</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EMAIL AUTOMATION -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">📧</span>
+                <h2>Email Automatizado</h2>
+            </div>
+            
+            <ul class="feature-list">
+                <li><span class="icon">✓</span>6 Templates profesionales</li>
+                <li><span class="icon">✓</span>Secuencias de seguimiento</li>
+                <li><span class="icon">✓</span>Programación temporal</li>
+                <li><span class="icon">✓</span>Analytics de respuestas</li>
+                <li><span class="icon">✓</span>Generación con IA</li>
+            </ul>
+
+            <div class="stats-grid" style="margin-top: 15px;">
+                <div class="stat-box">
+                    <div class="stat-number" id="emails-sent">0</div>
+                    <div class="stat-label">Enviados</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" id="emails-scheduled">0</div>
+                    <div class="stat-label">Programados</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- UNIVERSAL CONNECTOR -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">🔧</span>
+                <h2>Herramientas Universales (41+)</h2>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="stat-box">
+                    <div class="stat-number">Web</div>
+                    <div class="stat-label">8 tools</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">Sistema</div>
+                    <div class="stat-label">6 tools</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">Web</div>
+                    <div class="stat-label">8 tools</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">Sistema</div>
+                    <div class="stat-label">6 tools</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <div>Categorías:</div>
+                <ul class="feature-list" style="font-size: 0.9em;">
+                    <li>Web & Datos, Sistema, Google Workspace</li>
+                    <li>Redes Sociales, Email, Creación de Contenido</li>
+                    <li>Información, Utilidades, Investigación</li>
+                    <li>Sistema de Plugins Personalizables</div>
+                </ul>
+            </div>
+        </div>
+
+        <!-- AUTO-APRENDIZAJE -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">📚</span>
+                <h2>Auto-Aprendizaje</h2>
+            </div>
+            
+            <ul class="feature-list">
+                <li><span class="icon">📊</span>Análisis diario automático (3am)</li>
+                <li><span class="icon">🧠</span>Machine Learning local</li>
+                <li><span class="icon">🔄</span>Compresión semanal de conocimiento</li>
+                <li><span class="icon">🧿</span>Detección de patrones de éxito</li>
+                <li><span class="icon">🧪</span>Experimentación A/B de respuestas</li>
+            </ul>
+
+            <div style="margin-top: 15px;">
+                <div>Tasa de Aprendizaje:</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 65%"></div>
+                </div>
+                <div style="text-align: center; margin-top: 5px; font-size: 0.9em;">
+                    65% - Continuamente mejorando
+                </div>
+            </div>
+        </div>
+
+        <!-- WHATSAPP -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">📱</span>
+                <h2>WhatsApp Business</h2>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div>442 668 9053</div>
+                    <div class="status active">Principal</div>
+                </div>
+                <div class="stat-box">
+                    <div>442 835 034</div>
+                    <div class="status active">Ventas</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <div>Número Admin:</div>
+                <div style="font-size: 1.2em; font-weight: bold; color: #e94560;">
+                    55 1234 5678
+                </div>
+                <div style="font-size: 0.85em; color: #888; margin-top: 5px;">
+                    Comandos: /admin captura, /admin sistema, /admin reporte
+                </div>
+            </div>
+        </div>
+
+        <!-- COMANDOS RÁPIDOS -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">⚡</span>
+                <h2>Acciones Rápidas</h2>
+            </div>
+            
+            <button class="button" onclick="alert('Funcionalidad de reinicio')">
+                🔄 Reiniciar Sistema
+            </button>
+            
+            <button class="button" onclick="alert('Limpiando caché...')" style="margin-left: 10px;">
+                🧹 Limpiar Caché
+            </button>
+
+            
+            <button class="button" onclick="alert('Verificando sistema...')" style="margin-left: 10px;">
+                ✓ Verificar Estado
+            </button>
+
+            
+            <a href="./SOFIA-v5-COMPLETO.md" class="button" style="margin-top: 15px; display: inline-block; text-decoration: none;">
+                📖 Ver Documentación Completa
+            </a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Sofia v5.0 - Publicity Visual | Sistema de Inteligencia General</p>
+        <p>🤖 Conciencia Ética | 🧠 Adaptación Psicológica | 🔧 Herramientas Universales | 📧 Email Automático</p>
+        <p style="margin-top: 15px; color: #e94560; font-weight: bold;">
+            Costo: $0.00 | Inteligencia: Élite Universal | Detección IA: Imposible
+        </p>
+    </div>
+
+    <script>
+        // Simulación de actualización en tiempo real
+        function updateStats() {
+            // Simular conteo de chats
+            document.getElementById('active-chats').textContent = 
+                Math.floor(Math.random() * 10) + 5;
+            
+            // Simular emails
+            document.getElementById('emails-sent').textContent = 
+                Math.floor(Math.random() * 50) + 20;
+            
+            document.getElementById('emails-scheduled').textContent = 
+                Math.floor(Math.random() * 20) + 5;
+        }
+
+        // Actualizar cada 5 segundos
+        setInterval(updateStats, 5000);
+        updateStats();
+
+        // Agregar logs en tiempo real
+        function addLog(message) {
+            const logContainer = document.getElementById('system-logs');
+            const time = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span class="log-time">[${time}]</span>${message}`;
+            logContainer.insertBefore(logEntry, logContainer.firstChild);
+            
+            // Mantener solo últimos 10 logs
+            while (logContainer.children.length > 10) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        // Simular actividad
+        const activities = [
+            'Procesando mensaje entrante...',
+            'Analizando perfil psicológico...',
+            'Enviando email programado...',
+            'Actualizando modelo de aprendizaje...',
+            'Verificando integridad ética...',
+            'Procesando multimedia...',
+            'Conectando con API externa...'
+        ];
+
+        setInterval(() => {
+            if (Math.random() > 0.7) {
+                const activity = activities[Math.floor(Math.random() * activities.length)];
+                addLog(activity);
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

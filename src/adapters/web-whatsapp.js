@@ -19,6 +19,8 @@ class WebWhatsAppAdapter {
     this.currentQR = null;
     this.qrCallbacks = [];
     this.userInfo = null;
+    this.retryCount = 0;
+    this.maxRetries = 10;
   }
 
   async initialize() {
@@ -58,13 +60,15 @@ class WebWhatsAppAdapter {
             
             this.currentQR = qrDataURL;
             
-            // GUARDAR QR EN ARCHIVO HTML (sin servidor necesario)
-            await this.saveQRToFile(qrDataURL);
+            // GUARDAR QR EN JSON para la interfaz HTML
+            await this.saveQRToJSON(qrDataURL, 'connecting');
             
             // Notificar callbacks
             this.qrCallbacks.forEach(cb => {
-              try { cb({ qr: qrDataURL, status: 'connecting' }); } catch(e) {}
+              try { cb({ qr: qrDataURL, status: 'connecting' }); } catch(e) { logger.error('QR callback error:', e.message); }
             });
+            
+            logger.success('QR Code ready! Abre NOVA-CONTROL.html');
           } catch(e) {
             logger.error('QR generation error:', e.message);
           }
@@ -72,6 +76,7 @@ class WebWhatsAppAdapter {
 
         if (connection === 'open') {
           this.connected = true;
+          this.retryCount = 0; // Reset retry count on successful connection
           this.currentQR = null;
           
           // Get user info
@@ -83,13 +88,16 @@ class WebWhatsAppAdapter {
           
           logger.success(`✅ WhatsApp connected as ${this.userInfo.name}`);
           
+          // GUARDAR estado conectado
+          await this.saveQRToJSON(null, 'connected', this.userInfo);
+          
           // Notify callbacks
           this.qrCallbacks.forEach(cb => {
             try { cb({ 
               status: 'connected', 
               user: this.userInfo,
               qr: null 
-            }); } catch(e) {}
+            }); } catch(e) { logger.error('Connected callback error:', e.message); }
           });
         }
 
@@ -102,13 +110,17 @@ class WebWhatsAppAdapter {
           
           logger.warn(`WhatsApp disconnected: code ${statusCode}`);
           
-          if (shouldReconnect) {
-            logger.info('Reconnecting in 5s...');
-            setTimeout(() => this.initialize(), 5000);
+          if (shouldReconnect && this.retryCount < this.maxRetries) {
+            this.retryCount++;
+            const delay = Math.min(5000 * Math.pow(2, this.retryCount), 300000);
+            logger.info(`Reconnecting in ${delay/1000}s... (attempt ${this.retryCount})`);
+            setTimeout(() => this.initialize(), delay);
+          } else if (this.retryCount >= this.maxRetries) {
+            logger.error('Max reconnection attempts reached. Please restart manually.');
           }
           
           this.qrCallbacks.forEach(cb => {
-            try { cb({ status: 'disconnected' }); } catch(e) {}
+            try { cb({ status: 'disconnected' }); } catch(e) { logger.error('Disconnect callback error:', e.message); }
           });
         }
       });
@@ -149,7 +161,7 @@ class WebWhatsAppAdapter {
         try {
           const stream = await this.sock.downloadMediaMessage(msg);
           if (stream) imageData = stream.toString('base64');
-        } catch (e) {}
+        } catch (e) { logger.debug('Media download failed:', e.message); }
       }
 
       if (!text && !imageData) return;
@@ -193,7 +205,20 @@ class WebWhatsAppAdapter {
 
   // API for web server
   onStatusChange(callback) {
+    // Limpiar callbacks antiguos del mismo origen para evitar memory leaks
+    this.qrCallbacks = this.qrCallbacks.filter(cb => {
+      // Mantener solo callbacks activos (no de sesiones antiguas)
+      return cb !== null;
+    });
     this.qrCallbacks.push(callback);
+    
+    // Retornar función para cleanup
+    return () => {
+      const idx = this.qrCallbacks.indexOf(callback);
+      if (idx > -1) {
+        this.qrCallbacks.splice(idx, 1);
+      }
+    };
   }
 
   getStatus() {
@@ -203,6 +228,22 @@ class WebWhatsAppAdapter {
       user: this.userInfo,
       session: this.sessionName
     };
+  }
+
+  // Guardar QR en JSON para la interfaz HTML
+  async saveQRToJSON(qrData, status, user = null) {
+    try {
+      const data = {
+        qr: qrData,
+        status: status,
+        user: user,
+        timestamp: new Date().toISOString()
+      };
+      const filePath = path.join(process.cwd(), 'qr-data.json');
+      await fs.writeFile(filePath, JSON.stringify(data));
+    } catch (error) {
+      logger.error('Error saving QR JSON:', error.message);
+    }
   }
 
   // Guardar QR en archivo HTML (sin servidor necesario)

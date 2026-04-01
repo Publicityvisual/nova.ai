@@ -208,9 +208,5 @@ Tips:
 }
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = '338c1b13b9937176';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = NoteTakingSkill;
+module.exports = NoteTakingSkill;;

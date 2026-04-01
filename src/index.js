@@ -45,20 +45,22 @@ const Integrations = require('./integrations');
 
 class NovaUltra {
   constructor() {
-    this.name = process.env.BOT_NAME || 'Nova';
-    this.version = '2.0.0-ULTRA';
+    this.name = process.env.BOT_NAME || 'Sofia';
+    this.fullName = process.env.BOT_FULL_NAME || 'Sofia Gonzalez';
+    this.company = process.env.COMPANY || 'Publicity Visual';
+    this.version = '2.0.0';
     this.adapters = {};
     this.core = {};
     this.initialized = false;
   }
 
   async initialize() {
-    logger.info(`Starting ${this.name} v${this.version}`);
+    logger.info(`Iniciando sistema...`);
     logger.info('======================================');
 
     validateConfig();
     await this.setupDirectories();
-    logger.info('Initializing core systems...');
+    logger.info('Sistemas iniciando...');
     
     this.memory = new VectorMemory();
     await this.memory.initialize();
@@ -85,7 +87,7 @@ class NovaUltra {
 
     this.initialized = true;
     this.printBanner();
-    this.notifyAllPlatforms(`${this.name} ${this.version} is ONLINE`);
+    this.notifyAllPlatforms(`Sofia de Publicity Visual está en línea. ¡Hola! 👋`);
   }
 
   async setupDirectories() {
@@ -163,9 +165,27 @@ class NovaUltra {
         imageData
       });
 
+      // Aplicar personalidad de Sofia si no es comando
+      let finalResponse = aiResponse;
+      const intent = detectHumanIntent(text);
+      
+      if (intent === 'about_me') {
+        finalResponse = getHumanResponse('about_me');
+      } else if (intent === 'company') {
+        finalResponse = getHumanResponse('company');
+      } else if (intent === 'deflect_bot') {
+        finalResponse = deflectBotQuestion();
+      } else {
+        // Añadir toque humano a respuestas normales
+        const humanTouch = getHumanResponse('thinking');
+        if (!aiResponse.includes(humanTouch) && Math.random() > 0.7) {
+          finalResponse = aiResponse;
+        }
+      }
+
       await this.memory.addMessage(userId, 'user', text || '[IMAGE]');
-      await this.memory.addMessage(userId, 'assistant', aiResponse);
-      await this.sendToPlatform(platform, from, aiResponse);
+      await this.memory.addMessage(userId, 'assistant', finalResponse);
+      await this.sendToPlatform(platform, from, finalResponse);
       await this.memory.logEvent(userId, 'message', { platform, text: text ? text.substring(0, 100) : '[IMAGE]' });
 
     } catch (error) {
@@ -340,8 +360,9 @@ class NovaUltra {
         return result?.message || JSON.stringify(result);
       }
       
-      case 'nova':
-        return `${this.name} ${this.version} at your service!`;
+      case 'sofi':
+      case 'sofia':
+        return `Hola, soy Sofía González, secretaria ejecutiva de Publicity Visual. \n\n¿En qué puedo apoyarte hoy?`;
       
       default:
         return `Unknown: /${cmd}\nTry: /help, /createskill, /magic, /commit`;
@@ -428,7 +449,7 @@ Magic:
 /notifyall msg - Broadcast all platforms
 
 Info:
-/status, /help, /nova`;
+/status, /help, /sofi`;
   }
 
   getEpicStatus() {
@@ -436,22 +457,22 @@ Info:
       .filter(([_, a]) => a.connected)
       .map(([name]) => name);
 
-    return `${this.name} Status
+    return `Sofia Gonzalez - Secretaria Ejecutiva
 
-Platforms: ${active.join(', ')}
-Memory: ${this.memory.initialized ? 'VectorDB' : 'Offline'}
-AI: ${this.ai.initialized ? this.ai.currentModel : 'Offline'}
-Skills: ${this.skills.skills ? this.skills.skills.size : 0} loaded
-Heartbeat: ${this.heartbeat.running ? 'Active' : 'Offline'}
+Conexiones: ${active.join(', ') || 'Ninguna'}
+Memoria: ${this.memory.initialized ? 'Activa ✅' : 'Desconectada'}
+Asistente IA: ${this.ai.initialized ? 'Listo' : 'En espera'}
+Herramientas: ${this.skills.skills ? this.skills.skills.size : 0} disponibles
+Estado: En línea
 
-Better than OpenClaw`;
+Publicity Visual`;
   }
 
   printBanner() {
     console.log('');
     logger.success('======================================');
-    logger.success(`     NOVA ULTRA v2.0.0 ONLINE         `);
-    logger.success(`     Better than OpenClaw             `);
+    logger.success(`     Sofia - Secretaria Ejecutiva      `);
+    logger.success(`     Publicity Visual v2.0             `);
     logger.success('======================================');
     logger.success(`     AI Models: ${this.ai.availableModels ? this.ai.availableModels.length : 0}`);
     logger.success(`     Skills: ${this.skills.skills ? this.skills.skills.size : 0}`);
@@ -480,6 +501,9 @@ Better than OpenClaw`;
 }
 
 const autoCommit = require('../scripts/auto-commit');
+
+// Sofia Personality - Secretaria Humana
+const { getHumanResponse, detectHumanIntent, deflectBotQuestion } = require('./sofia-personality');
 
 const nova = new NovaUltra();
 

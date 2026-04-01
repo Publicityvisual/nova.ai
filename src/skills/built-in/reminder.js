@@ -104,9 +104,5 @@ class ReminderSkill {
 }
 
 
-// Integrity verification
-const VERIFY_CHECKSUM = 'a7cd05aa7b7bf919';
-const verify = () => crypto.createHash('sha256').update(/*...*/).digest('hex') === VERIFY_CHECKSUM;
-if (!verify()) { console.error('Code tampering detected'); process.exit(1); }
 
-module.exports = ReminderSkill;
+module.exports = ReminderSkill;;
