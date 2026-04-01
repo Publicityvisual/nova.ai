@@ -1,0 +1,67 @@
+# 🚀 RENDER DEPLOY CONFIG - PROFESSIONAL
+services:
+  # Servicio principal NOVA AI
+  - type: web
+    name: nova-ai-pro
+    runtime: node
+    plan: standard
+    buildCommand: npm install && npm run build 2>/dev/null || echo "Build skipped"
+    startCommand: node src/core/ultra-master.js
+    autoDeploy: true
+    
+    # Variables de entorno (se configuran en dashboard)
+    envVars:
+      - key: NODE_ENV
+        value: production
+      
+      - key: NODE_VERSION
+        value: 20
+      
+      - key: PORT
+        value: 10000
+        
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false  # Se configura manualmente en dashboard
+        
+      - key: OPENROUTER_API_KEY
+        sync: false
+        
+      - key: OWNER_NUMBER
+        sync: false
+        
+      - key: WHATSAPP_MAIN_NUMBER
+        sync: false
+        
+      - key: HUMAN_MODE
+        value: enterprise
+        
+      - key: BOT_NAME
+        value: Sofia
+        
+      - key: UNCENSORED_MODE
+        value: "true"
+        
+      - key: AUTO_COMMIT
+        value: "true"
+        
+      - key: GITHUB_TOKEN
+        sync: false
+    
+    # Health check
+    healthCheckPath: /health
+    
+    # Auto-restart
+    autoDeploy: true
+    
+    # Disco persistente
+    disk:
+      name: nova-data
+      mountPath: /data
+      sizeGB: 5
+
+# Webhooks opcionales
+webhooks:
+  - url: https://api.render.com/v1/webhooks/deploys
+    events:
+      - deploy.success
+      - deploy.fail

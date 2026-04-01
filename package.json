@@ -1,30 +1,47 @@
 {
-  "name": "nova-openclaw",
-  "version": "9.0.0",
-  "description": "NOVA OpenClaw - IA sin censura, multimodal, cloud 24/7",
-  "main": "NOVA-OPENCLAW.js",
+  "name": "nova-ai",
+  "version": "10.0.0",
+  "description": "NOVA AI - Sistema de Inteligencia Artificial Independiente, Sin Censura, Multimodal, 24/7",
+  "main": "src/core/ultra-master.js",
   "scripts": {
-    "start": "echo 'Usar: npx wrangler dev'",
-    "dev": "npx wrangler dev",
-    "deploy": "npx wrangler deploy --env production",
-    "logs": "npx wrangler tail",
-    "setup": "node scripts/setup-openclaw.js",
-    "local": "node NOVA-OPENCLAW.js"
+    "start": "node src/core/ultra-master.js",
+    "dev": "node src/index-ultra.js",
+    "build": "echo 'Build complete'",
+    "health": "node src/server/health-endpoint.js",
+    "postinstall": "echo 'Dependencies installed'",
+    "sync": "node scripts/github-auto-sync.js",
+    "activate": "node scripts/activate-all-systems.js",
+    "verify": "node scripts/verify-fixes.js"
   },
   "keywords": [
     "ai",
+    "nova-ai",
     "uncensored",
     "multimodal",
     "telegram",
-    "cloudflare",
-    "openclaw"
+    "whatsapp",
+    "autonomous",
+    "open-source"
   ],
-  "author": "DJ KOVECK",
+  "author": "NOVA AI Team",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "fs-extra": "^11.0.0",
+    "telegraf": "^4.15.0"
+  },
   "devDependencies": {
     "wrangler": "^3.0.0"
   },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Publicityvisual/nova.ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Publicityvisual/nova.ai/issues"
+  },
+  "homepage": "https://github.com/Publicityvisual/nova.ai#readme"
 }
