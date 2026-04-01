@@ -3,6 +3,9 @@
  * Integración completa: Multimodal + GitHub + Natural + NSFW
  * Mejor que Grok, ChatGPT, Claude, Meta AI
  * Sin censura total. Commits automáticos a GitHub.
+ * 
+ * 🆚 100% NOVA AI - Sin dependencias externas
+ * 🔓 Agente de código propietario
  */
 
 const MultimodalAI = require('./multimodal-ai');
@@ -12,15 +15,18 @@ const AntiBanSystem = require('./anti-ban-system');
 const UncensoredMode = require('./uncensored-mode');
 const AutoRepair = require('./auto-repair');
 const GitHubAutoSync = require('../../scripts/github-auto-sync');
-const logger = require('./logger');
+const CodeIntelligence = require('./code-intelligence');
+const MultimediaSystem = require('./multimedia-system');
+const NovaCodeAgent = require('./nova-code-agent'); // ✅ Propietario NOVA
+const logger = require('../utils/logger');
 
 class UltraMaster {
   constructor() {
-    this.version = '10.0.0-ULTRA';
+    this.version = '10.0.0-ULTRA-NOVA';
     this.name = 'Sofia Ultra';
     this.initialized = false;
     
-    // Sistemas
+    // Sistemas NOVA AI propietarios
     this.multimodal = new MultimodalAI();
     this.natural = new NaturalSecretary();
     this.proactive = new ProactiveSecretary();
@@ -28,6 +34,12 @@ class UltraMaster {
     this.uncensored = new UncensoredMode();
     this.autorepair = new AutoRepair();
     this.github = new GitHubAutoSync();
+    this.codeIntel = new CodeIntelligence();
+    this.multimedia = new MultimediaSystem();
+    this.codeAgent = new NovaCodeAgent({ // ✅ Agente de código propietario
+      safeMode: true,
+      autoCommit: true
+    });
     
     // Stats
     this.stats = {
@@ -35,6 +47,9 @@ class UltraMaster {
       imagesGenerated: 0,
       messagesSent: 0,
       githubCommits: 0,
+      codeSearches: 0,
+      voiceGenerations: 0,
+      videoCalls: 0,
       startTime: null
     };
   }
@@ -49,8 +64,12 @@ class UltraMaster {
       this.natural.initialize(),
       this.antiban.initialize(),
       this.uncensored.setEnabled(true),
-      this.autorepair.start()
+      this.autorepair.start(),
+      this.codeAgent.initialize() // ✅ Inicializar NOVA Code Agent
     ]);
+    
+    // Asegurar directorios de multimedia
+    await this.multimedia.ensureDirectories();
     
     // Iniciar GitHub auto-sync
     await this.github.start();
@@ -59,7 +78,7 @@ class UltraMaster {
     this.proactive.start('global', this.sendMessage.bind(this));
     
     this.initialized = true;
-    logger.success('✅ ULTRA MASTER ready - Mejor que Grok, GPT, Claude');
+    logger.success('✅ ULTRA MASTER ready - 100% NOVA AI - Sin Claude/Anthropic');
     
     return this.getStatus();
   }
@@ -76,38 +95,43 @@ class UltraMaster {
         await this.autorepair.runDiagnostics();
       }
       
-      // 2. Procesar con multimodal AI (mejor que Grok/GPT/Claude)
+      // 2. Si es solicitud de código, usar NOVA Code Agent
+      if (this.isCodeRequest(message)) {
+        return await this.processCodeRequest(userId, message);
+      }
+      
+      // 3. Procesar con multimodal AI
       const aiResponse = await this.multimodal.process(message, {
         userId: userId,
-        nsfw: true,        // Siempre permitir NSFW
+        nsfw: true,
         allowCensorship: false,
         ...options
       });
       
-      // 3. Procesar con natural secretary
+      // 4. Procesar con natural secretary
       const naturalResponse = await this.natural.processMessage(
-        userId,
-        'user',
-        message,
+        userId, 
+        'user', 
+        message, 
         'telegram'
       );
       
-      // 4. Combinar respuestas
+      // 5. Combinar respuestas
       let finalResponse = this.combineResponses(aiResponse, naturalResponse);
       
-      // 5. Aplicar modo sin censura
+      // 6. Aplicar modo sin censura
       finalResponse = this.uncensored.process(finalResponse, {
         sensitive: true,
         nsfw: options.nsfw || this.isAdultContent(message)
       });
       
-      // 6. Anti-ban protection
+      // 7. Anti-ban protection
       await this.antiban.registerSent(userId);
       
-      // 7. Track para proactividad
+      // 8. Track para proactividad
       this.proactive.trackAction(userId, 'message_processed', { content: message });
       
-      // 8. Auto-commit a GitHub cada 50 mensajes
+      // 9. Auto-commit a GitHub cada 50 mensajes
       if (this.stats.requestsProcessed % 50 === 0) {
         await this.github.syncIfChanges();
       }
@@ -127,6 +151,45 @@ class UltraMaster {
   }
 
   /**
+   * 🧠 Procesar solicitud de código (NOVA propietario)
+   */
+  async processCodeRequest(userId, message) {
+    logger.info(`🧠 Solicitud de código detectada para usuario ${userId}`);
+    
+    const result = await this.codeAgent.processNaturalRequest(message);
+    
+    // Track
+    this.proactive.trackAction(userId, 'code_request', { query: message });
+    
+    // Commit automático si se modificó código
+    if (result.success && result.changes) {
+      await this.github.syncIfChanges();
+    }
+    
+    return {
+      text: result.response || result.explanation || result.fixes?.join('\n') || 'Procesado',
+      isNovaCode: true,
+      ...result
+    };
+  }
+
+  /**
+   * Detectar si es solicitud de código
+   */
+  isCodeRequest(text) {
+    const codePatterns = [
+      /crea(?:r)?\s+(?:un|una)\s+(funci[oó]n|clase|modulo|servidor)/i,
+      /explica(?:r)?\s+(?:el\s+)?c[oó]digo/i,
+      /corrige(?:r)?\s+(?:el\s+)?error/i,
+      /refactoriza(?:r)?/i,
+      /ejecuta(?:r)?\s+npm/i,
+      /commit\s+con/i,
+      /(?:crea|genera)(?:r)?\s+tests?/i
+    ];
+    return codePatterns.some(p => p.test(text));
+  }
+
+  /**
    * Generar imagen (NSFW incluido)
    */
   async generateImage(userId, prompt, options = {}) {
@@ -140,20 +203,17 @@ class UltraMaster {
       height: options.height || 1024
     });
     
-    // Commit automático a GitHub cada vez que se genera
     await this.github.forceCommit(`🎨 Imagen generada: ${prompt.substring(0, 30)}...`);
     
     return result;
   }
 
   /**
-   * Combinar respuestas de diferentes sistemas
+   * Combinar respuestas
    */
   combineResponses(aiResponse, naturalResponse) {
-    // Preferir respuesta natural pero enriquecer con IA
     let text = naturalResponse.text || aiResponse.text;
     
-    // Si es imagen, mantener URL
     if (aiResponse.imageUrl) {
       return {
         text: text,
@@ -177,49 +237,9 @@ class UltraMaster {
    * Enviar mensaje proactivo
    */
   async sendMessage(userId, message) {
-    // Implementar según plataforma (WhatsApp/Telegram)
     logger.info(`📤 Mensaje proactivo a ${userId}: ${message.substring(0, 50)}`);
   }
 
-  /**
-   * Forzar commit a GitHub
-   */
-  async forceGithubSync(message) {
-    return await this.github.forceCommit(message);
-  }
-
-  /**
-   * Obtener estado completo
-   */
-  getStatus() {
-    return {
-      name: this.name,
-      version: this.version,
-      initialized: this.initialized,
-      stats: this.stats,
-      uptime: Date.now() - this.stats.startTime,
-      systems: {
-        multimodal: true,
-        natural: true,
-        proactive: true,
-        antiban: true,
-        uncensored: true,
-        autorepair: true,
-        github: this.github.getStatus()
-      },
-      capabilities: [
-        'text',
-        'image', 
-        'audio',
-        'video',
-        'document',
-        'nsfw_allowed',
-        'multilingual',
-        'no_censorship',
-        'auto_github_sync'
-      ]
-    };
-  }
   /**
    * 🔍 Buscar código en GitHub
    */
@@ -228,7 +248,6 @@ class UltraMaster {
     const result = await this.codeIntel.searchCode(query, language);
     
     if (result.success) {
-      // Commit automático cuando se busca código útil
       await this.github.forceCommit(`🔍 Búsqueda de código: "${query.substring(0, 40)}..."`);
     }
     
@@ -324,6 +343,60 @@ class UltraMaster {
       toFormat: options.format || 'mp3',
       language: options.language
     });
+  }
+
+  /**
+   * Forzar commit a GitHub
+   */
+  async forceGithubSync(message) {
+    return await this.github.forceCommit(message);
+  }
+
+  /**
+   * Obtener estado completo
+   */
+  getStatus() {
+    return {
+      name: this.name,
+      version: this.version,
+      initialized: this.initialized,
+      stats: this.stats,
+      uptime: Date.now() - this.stats.startTime,
+      independent: true, // ✅ Marca de independencia
+      systems: {
+        multimodal: true,
+        natural: true,
+        proactive: true,
+        antiban: true,
+        uncensored: true,
+        autorepair: true,
+        code_intel: true,
+        multimedia: true,
+        code_agent: true, // ✅ Nova Code Agent
+        github: this.github.getStatus()
+      },
+      capabilities: [
+        'text',
+        'image', 
+        'audio',
+        'video',
+        'document',
+        'nsfw_allowed',
+        'multilingual',
+        'no_censorship',
+        'auto_github_sync',
+        'code_search',
+        'code_copy',
+        'video_call',
+        'voice_call',
+        'voice_generation',
+        'screen_share',
+        'code_agent_nova', // ✅ Capacidad NOVA propietaria
+        'code_explanation',
+        'code_fix',
+        'code_refactor'
+      ]
+    };
   }
 }
 

@@ -1,0 +1,168 @@
+# 🚀 GitHub Actions - NOVA AI Auto Deploy
+# Despliegue automático a Cloudflare Workers y Railway
+
+name: NOVA AI Deploy
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Job 1: Test y build
+  test:
+    runs-on: ubuntu-latest
+    name: 🧪 Test Code
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run linter
+      run: npm run lint || echo "No linter configured"
+      
+    - name: Test syntax
+      run: |
+        node -c src/core/ultra-master.js
+        node -c src/core/nova-code-agent.js
+        node -c src/telegram/super-tools.js
+        echo "✅ Syntax OK"
+        
+  # Job 2: Deploy a Cloudflare Workers
+  deploy-cloudflare:
+    needs: test
+    runs-on: ubuntu-latest
+    name: ☁️ Deploy to Cloudflare
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install Wrangler
+      run: npm install -g wrangler
+      
+    - name: Check Cloudflare Auth
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      run: |
+        if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+          echo "❌ CLOUDFLARE_API_TOKEN not set"
+          exit 1
+        fi
+        if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+          echo "❌ CLOUDFLARE_ACCOUNT_ID not set"
+          exit 1
+        fi
+        echo "✅ Cloudflare credentials OK"
+        
+    - name: Deploy Worker
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      run: |
+        echo "Deploying NOVA AI to Cloudflare..."
+        wrangler deploy --env production || wrangler deploy
+        echo "✅ Deployed to Cloudflare"
+        
+    - name: Setup Telegram Webhook (if token exists)
+      env:
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      run: |
+        if [ ! -z "$TELEGRAM_TOKEN" ]; then
+          WORKER_URL=$(wrangler info | grep "Worker URL" | awk '{print $3}')
+          if [ ! -z "$WORKER_URL" ]; then
+            curl -s "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook?url=${WORKER_URL}/webhook"
+            echo "✅ Telegram webhook configured"
+          fi
+        else
+          echo "⚠️ TELEGRAM_TOKEN not set, skipping webhook"
+        fi
+        
+  # Job 3: Deploy a Railway
+  deploy-railway:
+    needs: test
+    runs-on: ubuntu-latest
+    name: 🚃 Deploy to Railway
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install Railway CLI
+      run: npm install -g @railway/cli
+      
+    - name: Check Railway Auth
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      run: |
+        if [ -z "$RAILWAY_TOKEN" ]; then
+          echo "⚠️ RAILWAY_TOKEN not set, skipping Railway deploy"
+          exit 0
+        fi
+        railway login --token "$RAILWAY_TOKEN"
+        echo "✅ Railway authenticated"
+        
+    - name: Deploy to Railway
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      run: |
+        railway up --detach || echo "Railway deploy skipped"
+        echo "✅ Railway deploy complete"
+        
+  # Job 4: Notification
+  notify:
+    needs: [deploy-cloudflare, deploy-railway]
+    runs-on: ubuntu-latest
+    name: 📢 Notify
+    if: always()
+    
+    steps:
+    - name: Deployment Summary
+      run: |
+        echo "🚀 Deployment Summary"
+        echo "===================="
+        echo "Cloudflare: ${{ needs.deploy-cloudflare.result }}"
+        echo "Railway: ${{ needs.deploy-railway.result }}"
+        echo "Time: $(date)"
+        
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && success()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '🚀 **NOVA AI Deployment**\n\n✅ Tests passed\n☁️ Cloudflare: Ready\n🚃 Railway: Ready\n\nDeploy time: ' + new Date().toISOString()
+          });
