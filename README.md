@@ -1,82 +1,56 @@
-# 🤖 NOVA - Tu IA Sin Límites
+# Nova AI v2.0
 
-**NOVA v9.0** — Como OpenClaw.ai pero gratuito, tuyo, sin censura.
+AI assistant for WhatsApp & Telegram. Runs 24/7 on Firebase, powered by Gemini.
 
----
+## Setup
 
-## ⚡ Instalación (2 minutos)
+1. Get a [Gemini API key](https://aistudio.google.com/app/apikey) (free)
+2. Create a [Telegram Bot](https://t.me/BotFather) (free)
+3. Set up [WhatsApp Business API](https://developers.facebook.com/docs/whatsapp/cloud-api) (free tier)
 
-**Windows:**
-```
-Doble click en: 🚀-INSTALAR-NOVA.bat
-```
+```bash
+# Set environment variables
+firebase functions:config:set \
+  gemini.api_key="YOUR_KEY" \
+  telegram.bot_token="YOUR_TOKEN" \
+  whatsapp.token="YOUR_TOKEN" \
+  whatsapp.verify_token="novaai_verify" \
+  whatsapp.phone_id="YOUR_PHONE_ID"
 
-**O manual:**
-1. Abre `NOVA-SIMPLE.html` en tu navegador
-2. Pega tokens de Telegram y OpenRouter
-3. Descarga tu bot listo
-
----
-
-## 🎯 Qué es NOVA
-
-Una IA que:
-- ✅ **Sin censura** — Responde TODO (NSFW permitido)
-- ✅ **Cloud 24/7** — Funciona con tu PC apagada
-- ✅ **Gratis** — Cloudflare Workers + OpenRouter free
-- ✅ **Tuya** — Código abierto, solo para ti
-- ✅ **Telegram** — Acceso desde tu celular
-
----
-
-## 📁 Estructura
-
-```
-nova/
-├── 🚀-INSTALAR-NOVA.bat    ← Iniciar (doble click)
-├── NOVA-SIMPLE.html       ← Configurador web
-├── NOVA-INSTALADOR.js     ← Instalador CLI
-├── NOVA-OPENCLAW.js       ← Código completo
-└── docs/                  ← Documentación extra
-    └── README-OPENCLAW.md
+# Deploy
+cd functions && npm install && cd ..
+firebase deploy
 ```
 
----
+## Webhooks
 
-## 🚀 Modos
+After deploy, configure:
 
-| Modo | Comando | Descripción |
-|------|---------|-------------|
-| ☁️ Cloud | `wrangler deploy` | 24/7, PC apagada, gratis |
-| 💻 Local | `node nova-local.js` | Tu PC prendida, inmediato |
+- **Telegram**: `https://novaai-38a4e.web.app/webhook/telegram`
+- **WhatsApp**: `https://novaai-38a4e.web.app/webhook/whatsapp`
 
----
+## Architecture
 
-## ⚡ Comandos
+```
+WhatsApp/Telegram -> Firebase Functions -> Gemini API -> Response
+                          |
+                    Firestore (memory + knowledge base)
+```
 
-En Telegram:
-- `/start` — Iniciar
-- Cualquier texto — Conversar sin filtros
+## API
 
----
+```bash
+# Chat
+curl -X POST https://novaai-38a4e.web.app/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hola", "tenantId": "default"}'
 
-## 🔧 Configurar
+# Set knowledge base
+curl -X POST https://novaai-38a4e.web.app/api/tenant/knowledge \
+  -H "Content-Type: application/json" \
+  -d '{"tenantId": "djkoveck", "businessName": "DJ KOVECK", "knowledgeBase": "..."}'
+```
 
-1. **Telegram**: @BotFather → `/newbot` → copia token
-2. **OpenRouter**: https://openrouter.ai/keys → crear API key
-3. Pega ambos en `NOVA-SIMPLE.html`
-4. Descarga y sube
+## License
 
----
-
-## 💡 Tips
-
-- **Límites**: 100k requests/día gratis en Cloudflare
-- **Modelos**: `meta-llama/llama-3.2-3b-instruct:free` (sin censura)
-- **Memoria**: Persistente en Cloudflare KV Storage
-
----
-
-Hecho con ❤️ para que tengas tu OpenClaw privado.
-
-**Sin límites. Sin restricciones. Tuyo.**
+MIT

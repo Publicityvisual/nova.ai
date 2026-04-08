@@ -1,27 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Tenants: only admin SDK (Cloud Functions) can write
+    match /tenants/{tenantId} {
+      allow read: if false;
+      allow write: if false;
+
+      // Conversations under each tenant
+      match /conversations/{contactId} {
+        allow read: if false;
+        allow write: if false;
+
+        match /messages/{messageId} {
+          allow read: if false;
+          allow write: if false;
+        }
+      }
+    }
+
+    // Block everything else by default
     match /{document=**} {
-      // Permitir acceso solo a usuarios autenticados (firebase)
-      // Para datos públicos, permitir lectura
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-    
-    match /users/{userId} {
-      // Usuarios pueden leer/escribir sus propios datos
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    match /conversations/{docId} {
-      // Permitir escritura desde funciones
-      allow read: if request.auth != null;
-      allow write: if true; // Las funciones tienen privilegios
-    }
-    
-    match /image_generations/{docId} {
-      allow read: if true;
-      allow write: if true; // Funciones cloud
+      allow read, write: if false;
     }
   }
 }
