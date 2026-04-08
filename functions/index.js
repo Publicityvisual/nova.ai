@@ -1,7 +1,7 @@
 /**
  * Nova AI v2.0 - Firebase Functions Backend
  * WhatsApp + Telegram AI Assistant 24/7
- * Powered by Gemini API (free tier)
+ * Powered by Ollama Cloud (gemma4:31b-cloud)
  */
 
 const functions = require("firebase-functions");
@@ -18,24 +18,25 @@ const db = admin.firestore();
 // ═══════════════════════════════════════════
 
 function getConfig(key) {
-  // Firebase Functions v2 uses process.env, v1 uses functions.config()
   const envKey = key.toUpperCase().replace(/\./g, "_");
   return process.env[envKey] || "";
 }
 
-const GEMINI_API_KEY = getConfig("GEMINI_API_KEY");
+const OLLAMA_API_KEY = getConfig("OLLAMA_API_KEY");
+const OLLAMA_MODEL = getConfig("OLLAMA_MODEL") || "gemma4:31b-cloud";
+const OLLAMA_API_URL = "https://api.ollama.com/api/chat";
 const TELEGRAM_BOT_TOKEN = getConfig("TELEGRAM_BOT_TOKEN");
 const WHATSAPP_TOKEN = getConfig("WHATSAPP_TOKEN");
 const WHATSAPP_VERIFY_TOKEN = getConfig("WHATSAPP_VERIFY_TOKEN") || "novaai_verify";
 const WHATSAPP_PHONE_ID = getConfig("WHATSAPP_PHONE_ID");
 
 // ═══════════════════════════════════════════
-// GEMINI AI - The Brain
+// OLLAMA CLOUD AI - The Brain
 // ═══════════════════════════════════════════
 
-async function askGemini(userMessage, conversationHistory, knowledgeBase) {
-  if (!GEMINI_API_KEY) {
-    return "Nova AI no tiene configurada la API de Gemini. Contacta al administrador.";
+async function askAI(userMessage, conversationHistory, knowledgeBase) {
+  if (!OLLAMA_API_KEY) {
+    return "Nova AI no tiene configurada la API. Contacta al administrador.";
   }
 
   const systemPrompt = knowledgeBase
@@ -52,44 +53,35 @@ REGLAS:
 - Nunca inventes precios o servicios que no estén en la información`
     : `Eres Nova AI, un asistente inteligente. Responde de forma útil y concisa en el idioma del usuario.`;
 
-  const contents = [];
+  const messages = [{ role: "system", content: systemPrompt }];
 
-  // Add conversation history (last 10 messages for context)
+  // Add conversation history (last 10 messages)
   const recentHistory = (conversationHistory || []).slice(-10);
   for (const msg of recentHistory) {
-    contents.push({
-      role: msg.role === "assistant" ? "model" : "user",
-      parts: [{ text: msg.content }],
-    });
+    messages.push({ role: msg.role, content: msg.content });
   }
 
   // Add current message
-  contents.push({
-    role: "user",
-    parts: [{ text: userMessage }],
-  });
+  messages.push({ role: "user", content: userMessage });
 
   try {
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      OLLAMA_API_URL,
       {
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-          topP: 0.9,
-        },
+        model: OLLAMA_MODEL,
+        messages,
+        stream: false,
+        options: { num_predict: 1024, temperature: 0.7 },
       },
-      { timeout: 30000 }
+      {
+        headers: { Authorization: `Bearer ${OLLAMA_API_KEY}` },
+        timeout: 60000,
+      }
     );
 
-    const candidate = response.data.candidates?.[0];
-    if (!candidate) return "No pude generar una respuesta. Intenta de nuevo.";
-
-    return candidate.content?.parts?.[0]?.text || "Respuesta vacía del modelo.";
+    return response.data.message?.content || "Respuesta vacía del modelo.";
   } catch (error) {
-    console.error("Gemini API error:", error.response?.data || error.message);
+    console.error("Ollama API error:", error.response?.data || error.message);
     return "Hubo un error procesando tu mensaje. Intenta de nuevo en un momento.";
   }
 }
@@ -186,7 +178,7 @@ async function handleTelegramUpdate(update) {
     reply =
       "Hola! Soy Nova AI, tu asistente inteligente 24/7.\n\nEscríbeme cualquier cosa y te respondo al instante.";
   } else if (text === "/status") {
-    reply = `Nova AI v2.0\nPlataforma: Firebase\nEstado: Online 24/7\nCerebro: Gemini 2.0 Flash`;
+    reply = `Nova AI v2.0\nPlataforma: Firebase\nEstado: Online 24/7\nCerebro: Ollama Cloud (${OLLAMA_MODEL})`;
   } else {
     // Get knowledge base and history
     const knowledgeBase = await getKnowledgeBase(tenantId);
@@ -196,7 +188,7 @@ async function handleTelegramUpdate(update) {
     await saveMessage(tenantId, contactId, "user", text);
 
     // Ask Gemini
-    reply = await askGemini(text, history, knowledgeBase);
+    reply = await askAI(text, history, knowledgeBase);
 
     // Save assistant reply
     await saveMessage(tenantId, contactId, "assistant", reply);
@@ -259,7 +251,7 @@ async function handleWhatsAppMessage(body) {
   await saveMessage(tenantId, contactId, "user", text);
 
   // Ask Gemini
-  const reply = await askGemini(text, history, knowledgeBase);
+  const reply = await askAI(text, history, knowledgeBase);
 
   // Save assistant reply
   await saveMessage(tenantId, contactId, "assistant", reply);
@@ -303,7 +295,7 @@ app.get("/health", (req, res) => {
     status: "online",
     version: "2.0.0",
     platform: "firebase",
-    ai: GEMINI_API_KEY ? "gemini" : "not configured",
+    ai: OLLAMA_API_KEY ? `ollama (${OLLAMA_MODEL})` : "not configured",
     telegram: TELEGRAM_BOT_TOKEN ? "configured" : "not configured",
     whatsapp: WHATSAPP_TOKEN ? "configured" : "not configured",
   });
@@ -352,7 +344,7 @@ app.post("/api/chat", async (req, res) => {
   const history = await getConversationHistory(tenantId, contactId);
 
   await saveMessage(tenantId, contactId, "user", message);
-  const reply = await askGemini(message, history, knowledgeBase);
+  const reply = await askAI(message, history, knowledgeBase);
   await saveMessage(tenantId, contactId, "assistant", reply);
 
   res.json({ reply, tenantId });
